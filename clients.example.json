@@ -1,0 +1,7 @@
+{
+  "CLIENT_ID_HERE": {
+    "name": "Human-readable business name",
+    "embedSecret": "GENERATE_WITH: openssl rand -hex 32",
+    "allowedOrigins": ["https://www.clientwebsite.com"]
+  }
+}
