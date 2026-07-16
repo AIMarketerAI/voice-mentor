@@ -1,303 +1,298 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Voice Mentor</title>
-<style>
-  /* Zero external dependencies: everything inline so the widget loads
-     instantly inside any client's iframe. */
-  * { box-sizing: border-box; margin: 0; padding: 0; }
-  html, body { height: 100%; }
-  body {
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-    display: flex; align-items: center; justify-content: center;
-    background: transparent;
-  }
-  .card {
-    width: 340px;
-    background: #ffffff;
-    border-radius: 28px;
-    box-shadow: 0 8px 40px rgba(0,0,0,.12);
-    padding: 32px 28px;
-    text-align: center;
-  }
-  .avatar {
-    width: 96px; height: 96px; border-radius: 50%;
-    margin: 0 auto 14px;
-    background: linear-gradient(135deg,#6366f1,#8b5cf6);
-    display: flex; align-items: center; justify-content: center;
-    overflow: hidden;
-  }
-  .avatar svg { width: 60px; height: 60px; }
-  h1 { font-size: 21px; font-weight: 700; color: #111; letter-spacing: -.2px; }
-  .hint { font-size: 14px; color: #6b7280; margin: 6px 0 20px; }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Voice Mentor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      background: #f7f7f8;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+    .card {
+      background: #fff;
+      border-radius: 24px;
+      padding: 32px 24px;
+      width: 100%;
+      max-width: 380px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.08);
+      text-align: center;
+    }
+    .avatar {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      background: #635bff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin: 0 auto 16px;
+      color: white;
+    }
+    .avatar svg { width: 40px; height: 40px; fill: currentColor; }
+    h1 { font-size: 22px; font-weight: 700; color: #111; margin-bottom: 6px; }
+    p.subtitle { font-size: 14px; color: #666; margin-bottom: 24px; }
+    
+    .input-group {
+      position: relative;
+      margin-bottom: 16px;
+    }
+    input[type="text"] {
+      width: 100%;
+      padding: 12px 40px 12px 16px;
+      border: 1px solid #e1e1e6;
+      border-radius: 12px;
+      font-size: 14px;
+      outline: none;
+    }
+    .mic-icon {
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #888;
+    }
 
-  .input-row { position: relative; margin-bottom: 16px; }
-  #textInput {
-    width: 100%; padding: 12px 44px 12px 16px;
-    border: 1.5px solid #e5e7eb; border-radius: 14px;
-    font-size: 15px; outline: none; transition: border-color .15s;
-  }
-  #textInput:focus { border-color: #6366f1; }
-  #micBtn {
-    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
-    background: none; border: none; cursor: pointer; font-size: 18px;
-    padding: 6px; border-radius: 50%;
-  }
-  #micBtn:hover { background: #f3f4f6; }
+    button {
+      width: 100%;
+      padding: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 16px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .btn-call { background: #10a37f; color: white; display: block; }
+    .btn-call:hover { background: #0e8e6f; }
+    .btn-end { background: #e53e3e; color: white; display: none; }
+    .btn-end:hover { background: #c53030; }
 
-  .buttons { display: flex; gap: 10px; justify-content: center; }
-  .btn {
-    flex: 1; padding: 13px 0; border: none; border-radius: 14px;
-    font-size: 15px; font-weight: 600; cursor: pointer; color: #fff;
-    transition: transform .06s, opacity .15s;
-  }
-  .btn:active { transform: scale(.97); }
-  #callBtn  { background: #16a34a; }
-  #callBtn:hover { background: #15803d; }
-  #endBtn   { background: #dc2626; display: none; }
-  #endBtn:hover { background: #b91c1c; }
-
-  #status { font-size: 13px; color: #6b7280; min-height: 20px; margin-top: 14px; }
-  #status.live { color: #16a34a; font-weight: 600; }
-
-  #lastLine {
-    font-size: 14px; color: #374151; margin-top: 10px; min-height: 20px;
-    line-height: 1.45; max-height: 84px; overflow-y: auto;
-  }
-
-  #wrapup { display: none; margin-top: 18px; text-align: left; }
-  #wrapup label { font-size: 13px; font-weight: 600; color: #374151; }
-  #transcriptBox {
-    width: 100%; height: 130px; margin-top: 6px; padding: 10px;
-    border: 1.5px solid #e5e7eb; border-radius: 12px;
-    font-size: 13px; font-family: inherit; resize: vertical; color: #374151;
-  }
-  #copyBtn {
-    margin-top: 8px; padding: 8px 16px; border: none; border-radius: 10px;
-    background: #f3f4f6; color: #111; font-size: 13px; font-weight: 600;
-    cursor: pointer;
-  }
-  #copyBtn:hover { background: #e5e7eb; }
-</style>
+    .status { font-size: 13px; color: #777; margin-top: 12px; min-height: 20px; }
+    .transcript {
+      margin-top: 20px;
+      text-align: left;
+      font-size: 13px;
+      color: #444;
+      background: #fafafa;
+      padding: 12px;
+      border-radius: 12px;
+      max-height: 150px;
+      overflow-y: auto;
+      border: 1px solid #eee;
+    }
+  </style>
 </head>
 <body>
+
   <div class="card">
-    <!-- Replace this SVG with <img src="..."> for a real portrait photo -->
-    <div class="avatar" aria-hidden="true">
-      <svg viewBox="0 0 24 24" fill="white">
-        <circle cx="12" cy="8.2" r="3.6"/>
-        <path d="M12 13.4c-4 0-7 2.2-7 5v1.6h14v-1.6c0-2.8-3-5-7-5z"/>
-      </svg>
+<div class="avatar" style="width: 120px; height: 120px; margin: 0 auto 16px;">
+      <img src="/images/profile.jpg" alt="AI Mark" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" />
     </div>
-    <h1>Voice Mentor</h1>
-    <p class="hint">Ask a question by typing or speaking.</p>
+    <h1>AI Mark</h1>
+    <p class="subtitle">Ask a question by typing or speaking.</p>
 
-    <div class="input-row">
-      <input id="textInput" type="text" placeholder="Type your question…" autocomplete="off" />
-      <button id="micBtn" title="Dictate into the box">🎤</button>
+    <div class="input-group">
+      <input type="text" id="textInput" placeholder="Type your question..." />
+      <span class="mic-icon">🎤</span>
     </div>
 
-    <div class="buttons">
-      <button id="callBtn" class="btn">📞 Call</button>
-      <button id="endBtn" class="btn">⛔ End Call</button>
-    </div>
+    <button id="callBtn" class="btn-call">📞 Call</button>
+    <button id="endBtn" class="btn-end">🛑 End Call</button>
 
-    <p id="status"></p>
-    <p id="lastLine"></p>
-
-    <div id="wrapup">
-      <label>Conversation transcript</label>
-      <textarea id="transcriptBox" readonly></textarea>
-      <button id="copyBtn">📋 Copy transcript</button>
-    </div>
+    <div class="status" id="status"></div>
+    <div class="transcript" id="transcript" style="display:none;"></div>
   </div>
 
-<script>
-  // The session token proving this widget was loaded through a valid,
-  // paid, domain-approved embed. Injected by the server. Lives only in
-  // this page's memory — never in cookies or localStorage.
-  const SESSION_TOKEN = "__SESSION_TOKEN__";
+  <script>
+    const SESSION_TOKEN = "__SESSION_TOKEN__";
+    let messages = [];
+    let callRecognizer = null;
+    let currentAudio = null;
 
-  const $ = (id) => document.getElementById(id);
-  const messages = [];        // full conversation for the API
-  const transcriptLines = []; // human-readable transcript
+    function $(id) {
+      return document.getElementById(id);
+    }
 
-  // ---------- State machine for the call loop ----------
-  // idle -> (Call) -> listening -> thinking -> speaking -> listening ... -> (End Call) -> idle
-  let callActive = false;
-  let recognizing = false;
+    function setStatus(text) {
+      const el = $("status");
+      if (el) el.innerText = text;
+    }
 
-  const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!SpeechRecognition) {
-    $("status").textContent = "Voice needs Chrome or Edge. Typing still works!";
-    $("callBtn").disabled = true;
-  }
+    function appendTranscript(sender, text) {
+      const box = $("transcript");
+      if (!box) return;
+      box.style.display = "block";
+      const p = document.createElement("p");
+      p.style.marginBottom = "6px";
+      p.innerHTML = "<strong>" + sender + ":</strong> " + text;
+      box.appendChild(p);
+      box.scrollTop = box.scrollHeight;
+    }
 
-  function makeRecognizer(onFinal) {
-    const rec = new SpeechRecognition();
-    rec.lang = "en-GB";
-    rec.interimResults = false;
-    rec.continuous = false; // one utterance at a time; we restart between turns
-    rec.onresult = (e) => {
-      const text = e.results[0][0].transcript.trim();
-      if (text) onFinal(text);
-    };
-    rec.onstart = () => { recognizing = true; };
-    rec.onend = () => {
-      recognizing = false;
-      // Silence timeout or no speech detected: if the call is still live
-      // and we're not mid-reply, just listen again. This is what makes it
-      // feel like an open phone line.
-      if (callActive && state === "listening") startListening();
-    };
-    rec.onerror = (e) => {
-      recognizing = false;
-      if (e.error === "not-allowed") {
-        setStatus("Microphone blocked — check browser permissions.");
-        endCall();
+    function speakFallback(text) {
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+        const u = new SpeechSynthesisUtterance(text);
+        u.onend = () => {
+          setStatus("Listening...");
+          if ($("endBtn").style.display === "block") {
+            listenNextTurn();
+          }
+        };
+        window.speechSynthesis.speak(u);
       }
-    };
-    return rec;
-  }
+    }
 
-  let state = "idle";
-  const callRecognizer = SpeechRecognition ? makeRecognizer(handleUserTurn) : null;
+async function askMentor(text) {
+      // Only show the message in transcript if it's NOT a system event
+      if (!text.startsWith("[SYSTEM EVENT")) {
+        appendTranscript("You", text);
+      }
+      
+      messages.push({ role: "user", content: text });
+      setStatus("Thinking...");
 
-  function setStatus(text, live = false) {
-    $("status").textContent = text;
-    $("status").className = live ? "live" : "";
-  }
+      if (callRecognizer) {
+        try { callRecognizer.abort(); } catch (_) {}
+      }
 
-  // ---------- The continuous loop (Pillar 2) ----------
+      try {
+        const r = await fetch("/api/chat", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": "Bearer " + SESSION_TOKEN,
+          },
+          body: JSON.stringify({ messages }),
+        });
 
-  function startCall() {
-    callActive = true;
-    state = "listening";
-    $("callBtn").style.display = "none";
-    $("endBtn").style.display = "block";
-    $("wrapup").style.display = "none";
-    startListening();
-  }
+        const data = await r.json();
+        if (!r.ok) throw new Error(data.error || "Request failed");
 
-  function startListening() {
-    if (!callActive || recognizing) return;
-    state = "listening";
-    setStatus("● Listening — just talk", true);
-    try { callRecognizer.start(); } catch (_) { /* already started */ }
-  }
+        messages.push({ role: "assistant", content: data.reply });
+        appendTranscript("Mentor", data.reply);
+        setStatus("Speaking...");
 
-  async function handleUserTurn(text) {
-    if (!callActive && state !== "typing") return;
-    state = "thinking";
-    setStatus("Thinking…");
-    addLine("You", text);
+        if (currentAudio) {
+          currentAudio.pause();
+          currentAudio = null;
+        }
 
-    const reply = await askMentor(text);
-    if (reply == null) return; // error already shown
+        if (data.audio) {
+          currentAudio = new Audio("data:audio/mp3;base64," + data.audio);
+          
+          currentAudio.onended = () => { 
+            if ($("endBtn").style.display === "block") {
+              listenNextTurn();
+            }
+          };
+          
+          currentAudio.play();
+        } else {
+          speakFallback(data.reply);
+        }
 
-    addLine("Mentor", reply);
-    speak(reply, () => {
-      // When the mentor finishes talking, reopen the mic. Hands-free.
-      if (callActive) startListening();
-      else state = "idle";
-    });
-  }
+        return data.reply;
+      } catch (err) {
+        console.error("Chat error:", err);
+        setStatus("⚠️ " + (err.message || "Error connecting."));
+      }
+    }
 
-  function endCall() {
-    callActive = false;
-    state = "idle";
-    try { callRecognizer && callRecognizer.abort(); } catch (_) {}
-    speechSynthesis.cancel();
-    $("callBtn").style.display = "block";
-    $("endBtn").style.display = "none";
-    setStatus("Call ended.");
-    showTranscript();
-  }
+function listenNextTurn() {
+      if (!callRecognizer || $("endBtn").style.display !== "block") return;
+      
+      setStatus("Listening...");
+      try {
+        callRecognizer.start();
+      } catch (err) {
+        // If it's already running or starting up, ignore the error
+        console.warn("Speech recognition start attempt:", err.message);
+      }
+    }
 
-  // ---------- Talking to the server ----------
+    async function startCall() {
+      const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!Speech) {
+        alert("Speech recognition is not supported in this browser.");
+        return;
+      }
 
-  async function askMentor(text) {
-    messages.push({ role: "user", content: text });
-    try {
-      const r = await fetch("/api/chat", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": "Bearer " + SESSION_TOKEN,
-        },
-        body: JSON.stringify({ messages }),
+      $("callBtn").style.display = "none";
+      $("endBtn").style.display = "block";
+
+      // 1. Initialize a SINGLE speech recognition instance for the entire call
+      callRecognizer = new Speech();
+      callRecognizer.continuous = false;
+      callRecognizer.interimResults = false;
+
+      callRecognizer.onresult = async (e) => {
+        const text = e.results[0][0].transcript.trim();
+        if (text.length > 0) {
+          await askMentor(text);
+        }
+      };
+
+      callRecognizer.onerror = (e) => {
+        // Log errors without forcing rapid re-initialization loops
+        console.warn("Recognizer error:", e.error);
+      };
+
+      callRecognizer.onend = () => {
+        // When audio finishes or times out naturally, restart quietly if call is active
+        if ($("endBtn").style.display === "block" && $("status").innerText === "Listening...") {
+          setTimeout(() => {
+            if ($("endBtn").style.display === "block") {
+              try { callRecognizer.start(); } catch (_) {}
+            }
+          }, 300);
+        }
+      };
+
+      // 2. Trigger initial greeting out loud in cloned ElevenLabs voice
+      await askMentor("[SYSTEM EVENT: User started the call. Greet them by saying: 'Hi, I'm AI Mark! How can I help you?']");
+    }
+
+    function endCall() {
+      if (callRecognizer) {
+        callRecognizer.onend = null;
+        try { callRecognizer.abort(); } catch (_) {}
+      }
+
+      if (currentAudio) {
+        currentAudio.pause();
+        currentAudio = null;
+      }
+
+      if ('speechSynthesis' in window) {
+        window.speechSynthesis.cancel();
+      }
+
+      $("callBtn").style.display = "block";
+      $("endBtn").style.display = "none";
+      setStatus("Call ended.");
+    }
+
+    $("callBtn").onclick = startCall;
+    $("endBtn").onclick = endCall;
+
+    const input = $("textInput");
+    if (input) {
+      input.addEventListener("keydown", async (e) => {
+        if (e.key === "Enter" && input.value.trim()) {
+          const val = input.value.trim();
+          input.value = "";
+          await askMentor(val);
+        }
       });
-      const data = await r.json();
-      if (!r.ok) throw new Error(data.error || "Request failed");
-      messages.push({ role: "assistant", content: data.reply });
-      return data.reply;
-    } catch (err) {
-      messages.pop(); // roll back the failed turn
-      setStatus("⚠️ " + err.message);
-      if (callActive) setTimeout(startListening, 2500);
-      return null;
     }
-  }
-
-  // ---------- Voice output ----------
-  // SWAP POINT: to upgrade to a premium AI voice later, replace this one
-  // function with a call to a TTS API that returns audio, and play it.
-  function speak(text, onDone) {
-    state = "speaking";
-    setStatus("Mentor is speaking…");
-    const u = new SpeechSynthesisUtterance(text);
-    u.lang = "en-GB";
-    u.rate = 1.03;
-    u.onend = onDone;
-    u.onerror = onDone;
-    speechSynthesis.speak(u);
-  }
-
-  // ---------- Transcript ----------
-
-  function addLine(who, text) {
-    transcriptLines.push(who + ": " + text);
-    $("lastLine").textContent = (who === "Mentor" ? "💬 " : "🗣 ") + text;
-  }
-
-  function showTranscript() {
-    if (!transcriptLines.length) return;
-    $("transcriptBox").value = transcriptLines.join("\n\n");
-    $("wrapup").style.display = "block";
-  }
-
-  // ---------- Wiring up the controls ----------
-
-  $("callBtn").addEventListener("click", startCall);
-  $("endBtn").addEventListener("click", endCall);
-
-  // Typed questions work with or without a call in progress.
-  $("textInput").addEventListener("keydown", (e) => {
-    if (e.key === "Enter" && e.target.value.trim()) {
-      const text = e.target.value.trim();
-      e.target.value = "";
-      if (!callActive) state = "typing";
-      try { callRecognizer && callRecognizer.abort(); } catch (_) {}
-      handleUserTurn(text);
-    }
-  });
-
-  // Mic icon = dictate one sentence into the text box.
-  $("micBtn").addEventListener("click", () => {
-    if (!SpeechRecognition || callActive) return;
-    const dictate = makeRecognizer((text) => { $("textInput").value = text; });
-    setStatus("● Listening…", true);
-    dictate.onend = () => { recognizing = false; setStatus(""); };
-    dictate.start();
-  });
-
-  $("copyBtn").addEventListener("click", async () => {
-    await navigator.clipboard.writeText($("transcriptBox").value);
-    $("copyBtn").textContent = "✅ Copied";
-    setTimeout(() => ($("copyBtn").textContent = "📋 Copy transcript"), 1500);
-  });
-</script>
+  </script>
 </body>
 </html>

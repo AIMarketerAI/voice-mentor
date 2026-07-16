@@ -1,26 +1,43 @@
+require('dotenv').config();
 // server.js — Voice Mentor embeddable widget server
-//
-// The flow (Pillar 3):
-//   1. A paying user visits the client's members-only page.
-//   2. That page's server generates a short-lived signed token (JWT) using
-//      the embed secret we gave the client, and puts it in the iframe URL:
-//      <iframe src="https://voicementor.io/embed?token=..."></iframe>
-//   3. GET /embed validates the token signature, expiry, and the Referer
-//      (which site is embedding us). If all good, we serve the widget with
-//      a fresh SESSION token baked in.
-//   4. The widget calls POST /api/chat with that session token on every turn.
-//      No token → no AI. No second login anywhere.
 
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
 const jwt = require("jsonwebtoken");
 const Anthropic = require("@anthropic-ai/sdk");
+const { ElevenLabsClient } = require("@elevenlabs/elevenlabs-js");
+const pdfParse = require("pdf-parse");
 
+// Helper function to read all knowledge base files
+async function getKnowledgeBase() {
+  const dirPath = path.join(__dirname, "knowledge_base");
+if (!fs.existsSync(dirPath)) return "";
+
+  const files = fs.readdirSync(dirPath);
+  let contextText = "";
+
+  for (const file of files) {
+    const filePath = path.join(dirPath, file);
+    if (file.endsWith(".txt") || file.endsWith(".md")) {
+      contextText += `\n--- SOURCE: ${file} ---\n` + fs.readFileSync(filePath, "utf8");
+    } else if (file.endsWith(".pdf")) {
+      const dataBuffer = fs.readFileSync(filePath);
+      const pdfData = await pdfParse(dataBuffer);
+      contextText += `\n--- SOURCE: ${file} ---\n` + pdfData.text;
+    }
+  }
+  return contextText;
+}
 const app = express();
 app.use(express.json());
-
+app.use("/images", express.static(path.join(__dirname, "views", "public", "images")));
 const anthropic = new Anthropic(); // reads ANTHROPIC_API_KEY from env
+
+// Initialize ElevenLabs client
+const elevenlabs = new ElevenLabsClient({
+  apiKey: process.env.ELEVENLABS_API_KEY,
+});
 
 // ---- Configuration ----
 const SESSION_SECRET = process.env.SESSION_SECRET;
@@ -37,13 +54,24 @@ const clients = JSON.parse(
 
 const SESSION_LIFETIME = "2h"; // how long one widget session stays unlocked
 
-const SYSTEM_PROMPT = `You are a warm, sharp mentor who helps people think
-clearly and turn ideas into action. You are speaking out loud in a voice
-conversation, so:
+let KNOWLEDGE_DATA = "";
+
+// Read knowledge base asynchronously on startup
+getKnowledgeBase().then((data) => {
+  KNOWLEDGE_DATA = data;
+  console.log("Knowledge base loaded successfully!");
+});
+
+function getSystemPrompt() {
+  return `You are a warm, sharp mentor named Mark who helps people think clearly and turn ideas into action. You are speaking out loud in a voice conversation, so:
 - Keep replies short: 2-4 spoken sentences, no lists, no markdown.
 - Ask one good question more often than you give advice.
 - When the user has an idea, help them find the single smallest next action.
-- Be encouraging but honest.`;
+- Be encouraging but honest.
+
+Use the following knowledge base from Mark's webinars, training materials, and experience to directly answer questions and inform your advice:
+${KNOWLEDGE_DATA}`;
+}
 
 // ---- Small helpers ----
 
@@ -69,14 +97,10 @@ app.get("/embed", (req, res) => {
   const token = req.query.token;
   if (!token) return res.status(401).send(deniedPage("No access token was provided."));
 
-  // Step A: read the token's clientId claim (unverified so far) to know
-  // whose secret to check it against.
   const unverified = jwt.decode(token);
   const client = unverified && clients[unverified.clientId];
   if (!client) return res.status(401).send(deniedPage("Unknown client."));
 
-  // Step B: verify the signature and expiry with THAT client's secret.
-  // If the token was forged or is older than its expiry, this throws.
   try {
     jwt.verify(token, client.embedSecret);
   } catch (err) {
@@ -87,23 +111,17 @@ app.get("/embed", (req, res) => {
     return res.status(401).send(deniedPage(reason));
   }
 
-  // Step C: domain lock. The Referer header tells us which page embedded
-  // the iframe. It must be on the client's approved list.
   const refererOrigin = originOf(req.get("referer") || "");
   if (!refererOrigin || !client.allowedOrigins.includes(refererOrigin)) {
     return res.status(403).send(deniedPage("This widget is not authorized to run on this website."));
   }
 
-  // Step D: all checks passed. Mint a session token (signed with OUR
-  // secret, not the client's) and bake it into the widget page.
   const sessionToken = jwt.sign(
     { clientId: unverified.clientId },
     SESSION_SECRET,
     { expiresIn: SESSION_LIFETIME }
   );
 
-  // Step E: CSP frame-ancestors = the browser itself refuses to render
-  // this page inside an iframe on any non-approved site. Strongest lock.
   res.set(
     "Content-Security-Policy",
     `frame-ancestors ${client.allowedOrigins.join(" ")}`
@@ -115,7 +133,7 @@ app.get("/embed", (req, res) => {
   res.send(html);
 });
 
-// ---- Route 2: the AI endpoint (requires a valid session) ----
+// ---- Route 2: the AI + ElevenLabs Voice endpoint ----
 
 function requireSession(req, res, next) {
   const token = (req.get("authorization") || "").replace(/^Bearer /, "");
@@ -130,8 +148,6 @@ function requireSession(req, res, next) {
 app.post("/api/chat", requireSession, async (req, res) => {
   const messages = req.body.messages;
 
-  // Basic abuse limits: cap conversation size so nobody can run up our bill
-  // with one giant request.
   if (
     !Array.isArray(messages) ||
     messages.length > 60 ||
@@ -141,26 +157,50 @@ app.post("/api/chat", requireSession, async (req, res) => {
   }
 
   try {
+    // 1. Get Claude text response
     const response = await anthropic.messages.create({
-      model: "claude-opus-4-8",
+      model: "claude-haiku-4-5",
       max_tokens: 500,
-      system: SYSTEM_PROMPT,
+      system: getSystemPrompt(),
       messages,
     });
     const text = response.content
       .filter((b) => b.type === "text")
       .map((b) => b.text)
       .join("");
-    res.json({ reply: text });
+
+    // 2. Generate audio with your ElevenLabs cloned voice
+    let audioBase64 = null;
+    if (process.env.ELEVENLABS_VOICE_ID) {
+      console.log("Generating audio with ElevenLabs voice ID:", process.env.ELEVENLABS_VOICE_ID);
+      const audioStream = await elevenlabs.textToSpeech.convert(
+        process.env.ELEVENLABS_VOICE_ID,
+        {
+          text: text,
+          model_id: "eleven_turbo_v2_5",
+          output_format: "mp3_44100_128",
+        }
+      );
+
+      const chunks = [];
+      for await (const chunk of audioStream) {
+        chunks.push(chunk);
+      }
+      const audioBuffer = Buffer.concat(chunks);
+      audioBase64 = audioBuffer.toString("base64");
+      console.log("ElevenLabs audio generated successfully!");
+    }
+
+    res.json({ reply: text, audio: audioBase64 });
   } catch (error) {
-    console.error("Claude API error:", error.message);
+    console.error("--- SERVER ERROR DETAILED ---");
+    console.error(error);
+    console.error("-----------------------------");
     res.status(500).json({ error: "The mentor is briefly unavailable. Try again." });
   }
 });
 
-// ---- Route 3 (dev only): a fake client website to test the whole flow ----
-// This simulates what a real client's members-only page does: it generates
-// a signed token server-side and embeds the iframe. Disabled in production.
+// ---- Route 3 (dev only): demo page ----
 
 app.get("/dev/demo", (req, res) => {
   if (process.env.NODE_ENV === "production") return res.status(404).end();
@@ -168,7 +208,7 @@ app.get("/dev/demo", (req, res) => {
   const embedToken = jwt.sign(
     { clientId: "demo" },
     clients.demo.embedSecret,
-    { expiresIn: "5m" } // short-lived on purpose: a stolen URL dies fast
+    { expiresIn: "5m" }
   );
 
   const html = fs

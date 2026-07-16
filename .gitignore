@@ -1,3 +1,5 @@
 node_modules/
 .env
 clients.json
+.DS_Store
+test_output.mp3

@@ -13,7 +13,10 @@
   "type": "commonjs",
   "dependencies": {
     "@anthropic-ai/sdk": "^0.111.0",
+    "@elevenlabs/elevenlabs-js": "^2.58.0",
+    "dotenv": "^17.4.2",
     "express": "^5.2.1",
-    "jsonwebtoken": "^9.0.3"
+    "jsonwebtoken": "^9.0.3",
+    "pdf-parse": "^1.1.1"
   }
 }
