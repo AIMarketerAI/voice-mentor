@@ -1,6 +1,11 @@
 # AI MARK TWIN - PROJECT BACKUP & PROGRESS CHECKPOINT
 
 **Date:** 15 July 2026 · **Workspace:** `~/voice-mentor` (git repository, 2 commits)
+
+> **UPDATE 16 July 2026:** ElevenLabs cloned voice, the knowledge_base/ folder
+> (dynamic .txt/.md/.pdf injection), the AI Mark rename, and the profile photo
+> are now ✅ BUILT and tested — several 🔜 items below are done. Model switched
+> to claude-haiku-4-5 for speed/cost. See SOP.md for the full build manual.
 **Legend:** ✅ BUILT & tested — working code in this repo · 🔜 PLANNED — agreed direction, not yet implemented
 
 ---
