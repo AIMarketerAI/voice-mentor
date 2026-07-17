@@ -216,28 +216,26 @@ function listenNextTurn() {
     }
 
     async function startCall() {
-      const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!Speech) {
-        alert("Speech recognition is not supported in this browser.");
-        return;
-      }
+  const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Speech) {
+    alert("Speech recognition is not supported in this browser.");
+    return;
+  }
 
-      $("callBtn").style.display = "none";
-$("endBtn").style.display = "block";
-if ($("transcript")) $("transcript").style.display = "block";
+  $("callBtn").style.display = "none";
+  $("endBtn").style.display = "block";
+  if ($("transcript")) $("transcript").style.display = "block";
 
-// Warm up audio player on user interaction (iOS fix)
-const player = document.getElementById("audio-player");
-if (player) {
-  player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-  player.play().catch(() => {});
-}
+  // Warm up audio player on user tap (iOS fix)
+  const player = document.getElementById("audio-player");
+  if (player) {
+    player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+    player.play().catch(() => {});
+  }
 
-// Trigger greeting from AI Mark
-// Instant local playback (0ms delay)
-setStatus("Connecting...");
+  setStatus("Connecting...");
 
-  // 1. Initialize speech recognition instance
+  // 1. Initialize speech recognition instance WITHOUT auto-starting
   callRecognizer = new Speech();
   callRecognizer.continuous = false;
   callRecognizer.interimResults = false;
@@ -262,6 +260,11 @@ setStatus("Connecting...");
       }, 300);
     }
   };
+
+  // 2. Ask mentor to greet out loud.
+  // The audio player's onended event will automatically switch status to "Listening..." and trigger the mic!
+  await askMentor("[SYSTEM EVENT: User started call. Give a 1-sentence quick greeting like 'Hey, Mark here, how can I help you?']");
+}
 
   // 2. Trigger spoken greeting out loud in cloned voice
   await askMentor("[SYSTEM EVENT: User started call. Give a 1-sentence quick greeting like 'Hey, Mark here, how can I help you?']");
