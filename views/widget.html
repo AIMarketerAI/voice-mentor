@@ -234,7 +234,8 @@ if (player) {
 }
 
 // Trigger greeting from AI Mark
-await askMentor("[SYSTEM EVENT: User started call]");
+// Instant local playback (0ms delay)
+appendTranscript("Mentor", "Hi, I'm AI Mark! How can I help you?");
 
       // 1. Initialize a SINGLE speech recognition instance for the entire call
       callRecognizer = new Speech();
@@ -264,8 +265,12 @@ await askMentor("[SYSTEM EVENT: User started call]");
         }
       };
 
-      // 2. Trigger initial greeting out loud in cloned ElevenLabs voice
-      await askMentor("[SYSTEM EVENT: User started the call. Greet them by saying: 'Hi, I'm AI Mark! How can I help you?']");
+      setStatus("Listening...");
+setTimeout(() => {
+  if (callRecognizer) {
+    try { callRecognizer.start(); } catch (_) {}
+  }
+}, 300);
     }
 
     function endCall() {
