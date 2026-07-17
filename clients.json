@@ -1,0 +1,7 @@
+{
+  "demo": {
+    "name": "Demo Client (local testing)",
+    "embedSecret": "b920a8526b83cfa8adc8418234c946aeacd0ecce6dd2c8ded8425f0481178956",
+    "allowedOrigins": ["http://localhost:3000"]
+  }
+}
