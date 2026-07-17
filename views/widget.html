@@ -106,7 +106,7 @@
     <div class="status" id="status"></div>
     <div class="transcript" id="transcript" style="display:none;"></div>
   </div>
-
+<audio id="audio-player" playsinline preload="auto"></audio>
   <script>
     const SESSION_TOKEN = "__SESSION_TOKEN__";
     let messages = [];
@@ -148,7 +148,11 @@
     }
 
 async function askMentor(text) {
-      // Only show the message in transcript if it's NOT a system event
+      const player = document.getElementById("audio-player");
+  if (player) {
+    player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+    player.play().catch(() => {});
+  // Only show the message in transcript if it's NOT a system event
       if (!text.startsWith("[SYSTEM EVENT")) {
         appendTranscript("You", text);
       }
@@ -177,24 +181,19 @@ async function askMentor(text) {
         appendTranscript("Mentor", data.reply);
         setStatus("Speaking...");
 
-        if (currentAudio) {
-          currentAudio.pause();
-          currentAudio = null;
-        }
-
         if (data.audio) {
-          currentAudio = new Audio("data:audio/mp3;base64," + data.audio);
-          
-          currentAudio.onended = () => { 
-            if ($("endBtn").style.display === "block") {
-              listenNextTurn();
-            }
-          };
-          
-          currentAudio.play();
-        } else {
-          speakFallback(data.reply);
+      const player = document.getElementById("audio-player");
+      player.src = "data:audio/mp3;base64," + data.audio;
+      player.onended = () => {
+        setStatus("Listening...");
+        if ($("endBtn").style.display === "block") {
+          listenNextTurn();
         }
+      };
+      player.play().catch(err => console.error("Playback error:", err));
+    } else {
+      speakFallback(data.reply);
+    }
 
         return data.reply;
       } catch (err) {
