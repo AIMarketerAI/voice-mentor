@@ -122,18 +122,12 @@ app.get("/embed", (req, res) => {
         ? "This access link has expired. Please refresh the page."
         : "Invalid access token.";
     return res.status(401).send(deniedPage(reason));
-
- const refererOrigin = "https://ai-mark-app.onrender.com";
+  }
 
   const sessionToken = jwt.sign(
     { clientId: unverified.clientId },
     SESSION_SECRET,
     { expiresIn: SESSION_LIFETIME }
-  );
-
-  res.set(
-    "Content-Security-Policy",
-    `frame-ancestors ${client.allowedOrigins.join(" ")}`
   );
 
   const html = fs
