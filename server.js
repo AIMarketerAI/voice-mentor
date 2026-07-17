@@ -56,7 +56,15 @@ const clients = JSON.parse(
 const SESSION_LIFETIME = "2h"; // how long one widget session stays unlocked
 
 app.get('/demo', (req, res) => {
-  res.sendFile(path.join(__dirname, 'views', 'demo-host.html'));
+  const filePath = path.join(__dirname, 'views', 'demo-host.html');
+  let html = fs.readFileSync(filePath, 'utf8');
+  
+  const client = clients["demo"];
+  const token = jwt.sign({ clientId: "demo" }, client.embedSecret, { expiresIn: '5m' });
+  const widgetUrl = `/widget.html?token=${token}`;
+  
+  html = html.replace('__IFRAME_SRC__', widgetUrl);
+  res.send(html);
 });
 
 let KNOWLEDGE_DATA = "";
