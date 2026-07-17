@@ -60,7 +60,7 @@ app.get('/demo', (req, res) => {
   let html = fs.readFileSync(filePath, 'utf8');
   
   const client = clients["demo"];
-  const token = jwt.sign({ clientId: "demo" }, client.embedSecret, { expiresIn: '5m' });
+  const token = jwt.sign({ clientId: "demo" }, client.embedSecret, { expiresIn: '2h' });
   const widgetUrl = `/widget.html?token=${token}`;
   
   html = html.replace('__IFRAME_SRC__', widgetUrl);
