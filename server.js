@@ -122,12 +122,13 @@ app.get("/embed", (req, res) => {
         ? "This access link has expired. Please refresh the page."
         : "Invalid access token.";
     return res.status(401).send(deniedPage(reason));
-  }
 
-  const refererOrigin = originOf(req.get("referer") || "");
-  if (!refererOrigin || !client.allowedOrigins.includes(refererOrigin)) {
-    return res.status(403).send(deniedPage("This widget is not authorized to run on this website."));
-  }
+  const refererHeader = req.get("referer") || req.get("origin") || "";
+const refererOrigin = originOf(refererHeader) || "https://ai-mark-app.onrender.com";
+
+if (client.allowedOrigins.length > 0 && !client.allowedOrigins.includes(refererOrigin)) {
+  return res.status(403).send(deniedPage("This widget is not authorized to run on this website."));
+  }}
 
   const sessionToken = jwt.sign(
     { clientId: unverified.clientId },
