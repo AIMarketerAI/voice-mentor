@@ -187,7 +187,7 @@ app.post("/api/chat", requireSession, async (req, res) => {
     // 1. Get Claude text response
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5",
-      max_tokens: 500,
+      max_tokens: 100,
       system: getSystemPrompt(),
       messages,
     });
