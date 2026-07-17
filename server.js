@@ -32,6 +32,7 @@ if (!fs.existsSync(dirPath)) return "";
 const app = express();
 app.use(express.json());
 app.use("/images", express.static(path.join(__dirname, "views", "public", "images")));
+app.use(express.static(path.join(__dirname, "views")));
 const anthropic = new Anthropic(); // reads ANTHROPIC_API_KEY from env
 
 // Initialize ElevenLabs client
