@@ -235,35 +235,36 @@ if (player) {
 
 // Trigger greeting from AI Mark
 // Instant local playback (0ms delay)
-appendTranscript("Mentor", "Hi, I'm AI Mark! How can I help you?");
+setStatus("Connecting...");
 
-      // 1. Initialize a SINGLE speech recognition instance for the entire call
-      callRecognizer = new Speech();
-      callRecognizer.continuous = false;
-      callRecognizer.interimResults = false;
+  // 1. Initialize speech recognition instance
+  callRecognizer = new Speech();
+  callRecognizer.continuous = false;
+  callRecognizer.interimResults = false;
 
-      callRecognizer.onresult = async (e) => {
-        const text = e.results[0][0].transcript.trim();
-        if (text.length > 0) {
-          await askMentor(text);
+  callRecognizer.onresult = async (e) => {
+    const text = e.results[0][0].transcript.trim();
+    if (text.length > 0) {
+      await askMentor(text);
+    }
+  };
+
+  callRecognizer.onerror = (e) => {
+    console.warn("Recognizer error:", e.error);
+  };
+
+  callRecognizer.onend = () => {
+    if ($("endBtn").style.display === "block" && $("status").innerText === "Listening...") {
+      setTimeout(() => {
+        if ($("endBtn").style.display === "block") {
+          try { callRecognizer.start(); } catch (_) {}
         }
-      };
+      }, 300);
+    }
+  };
 
-      callRecognizer.onerror = (e) => {
-        // Log errors without forcing rapid re-initialization loops
-        console.warn("Recognizer error:", e.error);
-      };
-
-      callRecognizer.onend = () => {
-        // When audio finishes or times out naturally, restart quietly if call is active
-        if ($("endBtn").style.display === "block" && $("status").innerText === "Listening...") {
-          setTimeout(() => {
-            if ($("endBtn").style.display === "block") {
-              try { callRecognizer.start(); } catch (_) {}
-            }
-          }, 300);
-        }
-      };
+  // 2. Trigger spoken greeting out loud in cloned voice
+  await askMentor("[SYSTEM EVENT: User started call. Give a 1-sentence quick greeting like 'Hey, Mark here, how can I help you?']");
 
       setStatus("Listening...");
 setTimeout(() => {
