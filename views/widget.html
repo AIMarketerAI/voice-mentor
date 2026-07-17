@@ -202,15 +202,49 @@
     }
 
     function listenNextTurn() {
-      if (!callRecognizer || $("endBtn").style.display !== "block") return;
-      
-      setStatus("Listening...");
-      try {
-        callRecognizer.start();
-      } catch (err) {
-        console.warn("Speech recognition start attempt:", err.message);
-      }
+  if ($("endBtn").style.display !== "block") return;
+  
+  setStatus("Listening...");
+
+  // Destroy old instance to prevent iOS Webkit freeze
+  if (callRecognizer) {
+    try { callRecognizer.abort(); } catch (_) {}
+    callRecognizer = null;
+  }
+
+  const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+  if (!Speech) return;
+
+  // Create a completely fresh instance for this turn
+  callRecognizer = new Speech();
+  callRecognizer.continuous = false;
+  callRecognizer.interimResults = false;
+
+  callRecognizer.onresult = async (e) => {
+    const text = e.results[0][0].transcript.trim();
+    if (text.length > 0) {
+      await askMentor(text);
     }
+  };
+
+  callRecognizer.onerror = (e) => {
+    console.warn("Recognizer error:", e.error);
+    // If iOS drops connection quietly, retry in 1s
+    if ($("endBtn").style.display === "block" && e.error !== "aborted") {
+      setTimeout(listenNextTurn, 1000);
+    }
+  };
+
+  callRecognizer.onend = () => {
+    // Left empty — player.onended handles calling listenNextTurn()
+  };
+
+  try {
+    callRecognizer.start();
+  } catch (err) {
+    console.warn("Start error:", err.message);
+  }
+}
 
     async function startCall() {
       const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
