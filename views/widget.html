@@ -39,22 +39,22 @@
       margin-bottom: 16px;
     }
     input[type="text"] {
-  width: 100%;
-  padding: 12px 40px 12px 16px;
-  background-color: #111111;
-  color: #ffffff;
-  border: 1px solid #333333;
-  border-radius: 12px;
-  font-size: 14px;
-  outline: none;
-}
+      width: 100%;
+      padding: 12px 40px 12px 16px;
+      background-color: #111111;
+      color: #ffffff;
+      border: 1px solid #333333;
+      border-radius: 12px;
+      font-size: 14px;
+      outline: none;
+    }
     .mic-icon {
-  position: absolute;
-  right: 12px;
-  top: 50%;
-  transform: translateY(-50%);
-  color: #cccccc;
-}
+      position: absolute;
+      right: 12px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: #cccccc;
+    }
 
     button {
       width: 100%;
@@ -89,7 +89,7 @@
 <body>
 
   <div class="card">
-<div class="avatar" style="width: 120px; height: 120px; margin: 0 auto 16px;">
+    <div class="avatar" style="width: 120px; height: 120px; margin: 0 auto 16px;">
       <img src="/images/profile.jpg" alt="AI Mark" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" />
     </div>
     <h1>AI Mark</h1>
@@ -106,12 +106,12 @@
     <div class="status" id="status"></div>
     <div class="transcript" id="transcript" style="display:none;"></div>
   </div>
-<audio id="audio-player" playsinline preload="auto"></audio>
+  <audio id="audio-player" playsinline preload="auto"></audio>
+
   <script>
     const SESSION_TOKEN = "__SESSION_TOKEN__";
     let messages = [];
     let callRecognizer = null;
-    let currentAudio = null;
 
     function $(id) {
       return document.getElementById(id);
@@ -138,7 +138,6 @@
         window.speechSynthesis.cancel();
         const u = new SpeechSynthesisUtterance(text);
         u.onend = () => {
-          setStatus("Listening...");
           if ($("endBtn").style.display === "block") {
             listenNextTurn();
           }
@@ -147,13 +146,13 @@
       }
     }
 
-async function askMentor(text) {
+    async function askMentor(text) {
       const player = document.getElementById("audio-player");
-  if (player && !player.src) {
-    player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-    player.play().catch(e => console.log("Audio warm up suppressed:", e));
-  }
-  // Only show the message in transcript if it's NOT a system event
+      if (player && !player.src) {
+        player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+        player.play().catch(e => console.log("Audio warm up suppressed:", e));
+      }
+
       if (!text.startsWith("[SYSTEM EVENT")) {
         appendTranscript("You", text);
       }
@@ -183,18 +182,17 @@ async function askMentor(text) {
         setStatus("Speaking...");
 
         if (data.audio) {
-      const player = document.getElementById("audio-player");
-      player.src = "data:audio/mp3;base64," + data.audio;
-      player.onended = () => {
-        setStatus("Listening...");
-        if ($("endBtn").style.display === "block") {
-          listenNextTurn();
+          const player = document.getElementById("audio-player");
+          player.src = "data:audio/mp3;base64," + data.audio;
+          player.onended = () => {
+            if ($("endBtn").style.display === "block") {
+              listenNextTurn();
+            }
+          };
+          player.play().catch(err => console.error("Playback error:", err));
+        } else {
+          speakFallback(data.reply);
         }
-      };
-      player.play().catch(err => console.error("Playback error:", err));
-    } else {
-      speakFallback(data.reply);
-    }
 
         return data.reply;
       } catch (err) {
@@ -203,78 +201,66 @@ async function askMentor(text) {
       }
     }
 
-function listenNextTurn() {
+    function listenNextTurn() {
       if (!callRecognizer || $("endBtn").style.display !== "block") return;
       
       setStatus("Listening...");
       try {
         callRecognizer.start();
       } catch (err) {
-        // If it's already running or starting up, ignore the error
         console.warn("Speech recognition start attempt:", err.message);
       }
     }
 
     async function startCall() {
-  const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Speech) {
-    alert("Speech recognition is not supported in this browser.");
-    return;
-  }
+      const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
+      if (!Speech) {
+        alert("Speech recognition is not supported in this browser.");
+        return;
+      }
 
-  $("callBtn").style.display = "none";
-  $("endBtn").style.display = "block";
-  if ($("transcript")) $("transcript").style.display = "block";
+      $("callBtn").style.display = "none";
+      $("endBtn").style.display = "block";
+      if ($("transcript")) $("transcript").style.display = "block";
 
-  // Warm up audio player on user tap (iOS fix)
-  const player = document.getElementById("audio-player");
-  if (player) {
-    player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-    player.play().catch(() => {});
-  }
+      // Warm up audio player on user tap (iOS fix)
+      const player = document.getElementById("audio-player");
+      if (player) {
+        player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+        player.play().catch(() => {});
+      }
 
-  setStatus("Connecting...");
+      setStatus("Connecting...");
 
-  // 1. Initialize speech recognition instance WITHOUT auto-starting
-  callRecognizer = new Speech();
-  callRecognizer.continuous = false;
-  callRecognizer.interimResults = false;
+      // 1. Initialize speech recognition instance WITHOUT auto-starting
+      callRecognizer = new Speech();
+      callRecognizer.continuous = false;
+      callRecognizer.interimResults = false;
 
-  callRecognizer.onresult = async (e) => {
-    const text = e.results[0][0].transcript.trim();
-    if (text.length > 0) {
-      await askMentor(text);
-    }
-  };
-
-  callRecognizer.onerror = (e) => {
-    console.warn("Recognizer error:", e.error);
-  };
-
-  callRecognizer.onend = () => {
-    if ($("endBtn").style.display === "block" && $("status").innerText === "Listening...") {
-      setTimeout(() => {
-        if ($("endBtn").style.display === "block") {
-          try { callRecognizer.start(); } catch (_) {}
+      callRecognizer.onresult = async (e) => {
+        const text = e.results[0][0].transcript.trim();
+        if (text.length > 0) {
+          await askMentor(text);
         }
-      }, 300);
-    }
-  };
+      };
 
-  // 2. Ask mentor to greet out loud.
-  // The audio player's onended event will automatically switch status to "Listening..." and trigger the mic!
-  await askMentor("[SYSTEM EVENT: User started call. Give a 1-sentence quick greeting like 'Hey, Mark here, how can I help you?']");
-}
+      callRecognizer.onerror = (e) => {
+        console.warn("Recognizer error:", e.error);
+      };
 
-  // 2. Trigger spoken greeting out loud in cloned voice
-  await askMentor("[SYSTEM EVENT: User started call. Give a 1-sentence quick greeting like 'Hey, Mark here, how can I help you?']");
+      callRecognizer.onend = () => {
+        if ($("endBtn").style.display === "block" && $("status").innerText === "Listening...") {
+          setTimeout(() => {
+            if ($("endBtn").style.display === "block") {
+              try { callRecognizer.start(); } catch (_) {}
+            }
+          }, 300);
+        }
+      };
 
-      setStatus("Listening...");
-setTimeout(() => {
-  if (callRecognizer) {
-    try { callRecognizer.start(); } catch (_) {}
-  }
-}, 300);
+      // 2. Ask mentor to greet out loud.
+      // Audio playback onended automatically triggers listenNextTurn() when finished!
+      await askMentor("[SYSTEM EVENT: User started call. Give a 1-sentence quick greeting like 'Hey, Mark here, how can I help you?']");
     }
 
     function endCall() {
@@ -283,9 +269,10 @@ setTimeout(() => {
         try { callRecognizer.abort(); } catch (_) {}
       }
 
-      if (currentAudio) {
-        currentAudio.pause();
-        currentAudio = null;
+      const player = document.getElementById("audio-player");
+      if (player) {
+        player.pause();
+        player.currentTime = 0;
       }
 
       if ('speechSynthesis' in window) {
