@@ -204,7 +204,7 @@ app.post("/api/chat", requireSession, async (req, res) => {
         process.env.ELEVENLABS_VOICE_ID,
         {
           text: text,
-          model_id: "eleven_turbo_v2_5",
+          model_id: "eleven_flash_v2_5",
           output_format: "mp3_44100_128",
         }
       );
