@@ -149,9 +149,10 @@
 
 async function askMentor(text) {
       const player = document.getElementById("audio-player");
-  if (player) {
+  if (player && !player.src) {
     player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-    player.play().catch(() => {});
+    player.play().catch(e => console.log("Audio warm up suppressed:", e));
+  }
   // Only show the message in transcript if it's NOT a system event
       if (!text.startsWith("[SYSTEM EVENT")) {
         appendTranscript("You", text);
@@ -222,7 +223,18 @@ function listenNextTurn() {
       }
 
       $("callBtn").style.display = "none";
-      $("endBtn").style.display = "block";
+$("endBtn").style.display = "block";
+if ($("transcript")) $("transcript").style.display = "block";
+
+// Warm up audio player on user interaction (iOS fix)
+const player = document.getElementById("audio-player");
+if (player) {
+  player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+  player.play().catch(() => {});
+}
+
+// Trigger greeting from AI Mark
+await askMentor("[SYSTEM EVENT: User started call]");
 
       // 1. Initialize a SINGLE speech recognition instance for the entire call
       callRecognizer = new Speech();
