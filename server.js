@@ -55,6 +55,10 @@ const clients = JSON.parse(
 
 const SESSION_LIFETIME = "2h"; // how long one widget session stays unlocked
 
+app.get('/demo', (req, res) => {
+  res.sendFile(path.join(__dirname, 'views', 'demo-host.html'));
+});
+
 let KNOWLEDGE_DATA = "";
 
 // Read knowledge base asynchronously on startup
