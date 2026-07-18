@@ -112,7 +112,7 @@
     const SESSION_TOKEN = "__SESSION_TOKEN__";
     let messages = [];
     let callRecognizer = null;
-    let listenTimeout = null;
+    let isListening = false;
 
     function $(id) { return document.getElementById(id); }
 
@@ -163,46 +163,53 @@
           const player = document.getElementById("audio-player");
           player.src = "data:audio/mp3;base64," + data.audio;
           player.onended = () => {
-            // CRUCIAL FOR MOBILE: Wait 400ms for hardware to release speaker channel before opening mic
-            if (listenTimeout) clearTimeout(listenTimeout);
-            listenTimeout = setTimeout(() => {
-              if ($("endBtn").style.display === "block") listenNextTurn();
-            }, 400);
+            prepareNextTurn();
           };
           player.play().catch(err => {
             console.error("Playback error:", err);
-            listenNextTurn();
+            prepareNextTurn();
           });
         } else {
-          listenNextTurn();
+          prepareNextTurn();
         }
       } catch (err) {
         console.error("Chat error:", err);
         setStatus("⚠️ Connection error.");
-        if (listenTimeout) clearTimeout(listenTimeout);
-        listenTimeout = setTimeout(() => { if ($("endBtn").style.display === "block") listenNextTurn(); }, 2000);
+        prepareNextTurn();
       }
     }
 
-    function stopMicrophone() {
-      if (listenTimeout) {
-        clearTimeout(listenTimeout);
-        listenTimeout = null;
-      }
-      if (callRecognizer) {
-        callRecognizer.onresult = null;
-        callRecognizer.onerror = null;
-        callRecognizer.onend = null;
-        try { callRecognizer.abort(); } catch (_) {}
-        callRecognizer = null;
+    function prepareNextTurn() {
+      isListening = false;
+      const endBtn = $("endBtn");
+      if (endBtn && endBtn.style.display === "block") {
+        endBtn.innerText = "🎙️ Tap to Speak";
+        endBtn.style.backgroundColor = "#22c55e"; // Changes button to green for visual cue
+        setStatus("Tap the button when you are ready to talk.");
       }
     }
 
-    function listenNextTurn() {
+    function toggleMicrophone() {
       if ($("endBtn").style.display !== "block") return;
-      
+
+      if (isListening) {
+        // User clicked again while listening -> stop manually and process text
+        if (callRecognizer) {
+          try { callRecognizer.stop(); } catch (_) {}
+        }
+      } else {
+        startListeningTurn();
+      }
+    }
+
+    function startListeningTurn() {
       stopMicrophone();
-      setStatus("Listening...");
+      isListening = true;
+      
+      const endBtn = $("endBtn");
+      endBtn.innerText = "🛑 Stop & Send";
+      endBtn.style.backgroundColor = "#ef4444"; // Changes button back to red
+      setStatus("Listening... Speak now.");
 
       const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
       if (!Speech) return;
@@ -215,30 +222,42 @@
         const text = e.results[0][0].transcript.trim();
         if (text.length > 0) {
           await askMentor(text);
+        } else {
+          prepareNextTurn();
         }
       };
 
       callRecognizer.onerror = (e) => {
         console.warn("Speech error:", e.error);
-        if ($("endBtn").style.display === "block" && e.error !== "aborted") {
-          if (listenTimeout) clearTimeout(listenTimeout);
-          listenTimeout = setTimeout(listenNextTurn, 500);
+        if (e.error !== "aborted") {
+          prepareNextTurn();
         }
       };
 
       callRecognizer.onend = () => {
-        if (listenTimeout) clearTimeout(listenTimeout);
-        listenTimeout = setTimeout(() => {
-          if ($("endBtn").style.display === "block" && $("status").innerText === "Listening..." && !callRecognizer) {
-            listenNextTurn();
+        // If engine times out naturally without user clicking stop
+        setTimeout(() => {
+          if (isListening && $("status").innerText === "Listening...") {
+            prepareNextTurn();
           }
-        }, 600);
+        }, 300);
       };
 
       try {
         callRecognizer.start();
       } catch (err) {
         console.warn("Start error:", err.message);
+        prepareNextTurn();
+      }
+    }
+
+    function stopMicrophone() {
+      if (callRecognizer) {
+        callRecognizer.onresult = null;
+        callRecognizer.onerror = null;
+        callRecognizer.onend = null;
+        try { callRecognizer.abort(); } catch (_) {}
+        callRecognizer = null;
       }
     }
 
@@ -259,6 +278,7 @@
 
     function endCall() {
       stopMicrophone();
+      isListening = false;
       const player = document.getElementById("audio-player");
       if (player) {
         player.pause();
@@ -266,11 +286,20 @@
       }
       $("callBtn").style.display = "block";
       $("endBtn").style.display = "none";
+      $("endBtn").innerText = "End Call";
+      $("endBtn").style.backgroundColor = ""; // Reset styling
       setStatus("Call ended.");
     }
 
     $("callBtn").onclick = startCall;
-    $("endBtn").onclick = endCall;
+    
+    // Instead of dropping entirely, make the middle button drive phone engagement explicitly
+    $("endBtn").onclick = (e) => {
+      // If user holds/taps during actual listening, manage the turn
+      if ($("status").innerText === "Listening... Speak now." || !isListening) {
+        toggleMicrophone();
+      }
+    };
 
     const input = $("textInput");
     if (input) {
