@@ -113,9 +113,7 @@
     let messages = [];
     let callRecognizer = null;
 
-    function $(id) {
-      return document.getElementById(id);
-    }
+    function $(id) { return document.getElementById(id); }
 
     function setStatus(text) {
       const el = $("status");
@@ -133,25 +131,9 @@
       box.scrollTop = box.scrollHeight;
     }
 
-    function speakFallback(text) {
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-        const u = new SpeechSynthesisUtterance(text);
-        u.onend = () => {
-          if ($("endBtn").style.display === "block") {
-            listenNextTurn();
-          }
-        };
-        window.speechSynthesis.speak(u);
-      }
-    }
-
     async function askMentor(text) {
-      const player = document.getElementById("audio-player");
-      if (player && !player.src) {
-        player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-        player.play().catch(e => console.log("Audio warm up suppressed:", e));
-      }
+      // 1. Immediately kill the mic before any processing or network delay to prevent iOS lockups
+      stopMicrophone();
 
       if (!text.startsWith("[SYSTEM EVENT")) {
         appendTranscript("You", text);
@@ -159,10 +141,6 @@
       
       messages.push({ role: "user", content: text });
       setStatus("Thinking...");
-
-      if (callRecognizer) {
-        try { callRecognizer.abort(); } catch (_) {}
-      }
 
       try {
         const r = await fetch("/api/chat", {
@@ -189,84 +167,40 @@
               listenNextTurn();
             }
           };
-          player.play().catch(err => console.error("Playback error:", err));
+          player.play().catch(err => {
+            console.error("Playback error:", err);
+            listenNextTurn();
+          });
         } else {
-          speakFallback(data.reply);
+          setStatus("Listening...");
+          listenNextTurn();
         }
-
-        return data.reply;
       } catch (err) {
         console.error("Chat error:", err);
-        setStatus("⚠️ " + (err.message || "Error connecting."));
+        setStatus("⚠️ Connection error.");
+        setTimeout(() => { if ($("endBtn").style.display === "block") listenNextTurn(); }, 2000);
+      }
+    }
+
+    function stopMicrophone() {
+      if (callRecognizer) {
+        callRecognizer.onresult = null;
+        callRecognizer.onerror = null;
+        callRecognizer.onend = null;
+        try { callRecognizer.abort(); } catch (_) {}
+        callRecognizer = null;
       }
     }
 
     function listenNextTurn() {
-  if ($("endBtn").style.display !== "block") return;
-  
-  setStatus("Listening...");
+      if ($("endBtn").style.display !== "block") return;
+      
+      stopMicrophone();
+      setStatus("Listening...");
 
-  // Destroy old instance to prevent iOS Webkit freeze
-  if (callRecognizer) {
-    try { callRecognizer.abort(); } catch (_) {}
-    callRecognizer = null;
-  }
-
-  const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Speech) return;
-
-  // Create a completely fresh instance for this turn
-  callRecognizer = new Speech();
-  callRecognizer.continuous = false;
-  callRecognizer.interimResults = false;
-
-  callRecognizer.onresult = async (e) => {
-    const text = e.results[0][0].transcript.trim();
-    if (text.length > 0) {
-      await askMentor(text);
-    }
-  };
-
-  callRecognizer.onerror = (e) => {
-    console.warn("Recognizer error:", e.error);
-    // If iOS drops connection quietly, retry in 1s
-    if ($("endBtn").style.display === "block" && e.error !== "aborted") {
-      setTimeout(listenNextTurn, 1000);
-    }
-  };
-
-  callRecognizer.onend = () => {
-    // Left empty — player.onended handles calling listenNextTurn()
-  };
-
-  try {
-    callRecognizer.start();
-  } catch (err) {
-    console.warn("Start error:", err.message);
-  }
-}
-
-    async function startCall() {
       const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!Speech) {
-        alert("Speech recognition is not supported in this browser.");
-        return;
-      }
+      if (!Speech) return;
 
-      $("callBtn").style.display = "none";
-      $("endBtn").style.display = "block";
-      if ($("transcript")) $("transcript").style.display = "block";
-
-      // Warm up audio player on user tap (iOS fix)
-      const player = document.getElementById("audio-player");
-      if (player) {
-        player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-        player.play().catch(() => {});
-      }
-
-      setStatus("Connecting...");
-
-      // 1. Initialize speech recognition instance WITHOUT auto-starting
       callRecognizer = new Speech();
       callRecognizer.continuous = false;
       callRecognizer.interimResults = false;
@@ -279,40 +213,51 @@
       };
 
       callRecognizer.onerror = (e) => {
-        console.warn("Recognizer error:", e.error);
-      };
-
-      callRecognizer.onend = () => {
-        if ($("endBtn").style.display === "block" && $("status").innerText === "Listening...") {
-          setTimeout(() => {
-            if ($("endBtn").style.display === "block") {
-              try { callRecognizer.start(); } catch (_) {}
-            }
-          }, 300);
+        console.warn("Speech error:", e.error);
+        // Recover if iOS webkit drops the microphone stream quietly
+        if ($("endBtn").style.display === "block" && e.error !== "aborted") {
+          setTimeout(listenNextTurn, 400);
         }
       };
 
-      // 2. Ask mentor to greet out loud.
-      // Audio playback onended automatically triggers listenNextTurn() when finished!
+      callRecognizer.onend = () => {
+        // Fallback recovery if engine shuts down without driving a result
+        setTimeout(() => {
+          if ($("endBtn").style.display === "block" && $("status").innerText === "Listening..." && !callRecognizer) {
+            listenNextTurn();
+          }
+        }, 500);
+      };
+
+      try {
+        callRecognizer.start();
+      } catch (err) {
+        console.warn("Start error:", err.message);
+      }
+    }
+
+    async function startCall() {
+      $("callBtn").style.display = "none";
+      $("endBtn").style.display = "block";
+      if ($("transcript")) $("transcript").style.display = "block";
+
+      const player = document.getElementById("audio-player");
+      if (player) {
+        player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
+        player.play().catch(() => {});
+      }
+
+      setStatus("Connecting...");
       await askMentor("[SYSTEM EVENT: User started call. Give a 1-sentence quick greeting like 'Hey, Mark here, how can I help you?']");
     }
 
     function endCall() {
-      if (callRecognizer) {
-        callRecognizer.onend = null;
-        try { callRecognizer.abort(); } catch (_) {}
-      }
-
+      stopMicrophone();
       const player = document.getElementById("audio-player");
       if (player) {
         player.pause();
         player.currentTime = 0;
       }
-
-      if ('speechSynthesis' in window) {
-        window.speechSynthesis.cancel();
-      }
-
       $("callBtn").style.display = "block";
       $("endBtn").style.display = "none";
       setStatus("Call ended.");
