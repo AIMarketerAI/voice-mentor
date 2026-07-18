@@ -1,60 +1,58 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AI Mark Mentor</title>
-  <style>
-    body {
-      background-color: #000;
-      color: #fff;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      margin: 0;
-      padding: 20px;
-    }
-    .profile-container {
-      text-align: center;
-      max-width: 400px;
-    }
-    .avatar {
-      width: 180px;
-      height: 180px;
-      border-radius: 50%;
-      border: 3px solid #d4af37;
-      margin-bottom: 20px;
-    }
-    h1 {
-      font-size: 28px;
-      margin: 10px 0;
-    }
-    p {
-      color: #aaa;
-      font-size: 16px;
-      margin-bottom: 30px;
-    }
-    elevenlabs-convai {
-      display: block;
-      margin: 20px auto;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Mark</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background-color: #000000;
+            color: #ffffff;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            overflow: hidden;
+        }
+        .profile-container {
+            text-align: center;
+            padding: 20px;
+        }
+        .avatar {
+            width: 150px;
+            height: 150px;
+            border-radius: 50%;
+            border: 3px solid #dfb76c;
+            object-fit: cover;
+            margin-bottom: 20px;
+        }
+        h1 {
+            margin: 0 0 10px 0;
+            font-size: 2rem;
+            letter-spacing: 1px;
+        }
+        p {
+            margin: 0;
+            color: #aaaaaa;
+            font-size: 1rem;
+        }
+    </style>
 </head>
 <body>
 
-  <div class="profile-container">
-    <img src="/images/profile.jpg" alt="Mark Laxton" class="avatar">
-    <h1>AI Mark</h1>
-    <p>Tap below to start an uninterrupted voice call</p>
+    <div class="profile-container">
+        <img src="/images/profile.jpg" alt="Mark Laxton" class="avatar">
+        <h1>AI Mark</h1>
+        <p>Tap the call button in the bottom right corner to start</p>
+    </div>
 
-    <!-- ELEVENLABS WEBRTC WIDGET -->
-    <elevenlabs-convai agent-id="6301fcb97fec6971ee601a0a2f4bdca5"></elevenlabs-convai>
-  </div>
-
-  <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
+    <!-- ELEVENLABS WIDGET -->
+    <elevenlabs-convai agent-id="agent_53d16ccb97ccfee6ea6ccb9ce6e2"></elevenlabs-convai>
+    <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
 
 </body>
 </html>
