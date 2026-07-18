@@ -1,316 +1,60 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Voice Mentor</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Mark Mentor</title>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-
     body {
-      background-color: #000000;
-      color: #ffffff;
-    }
-
-    .widget-card {
-      background-color: #000000;
-      border: 1px solid #222222;
-      border-radius: 16px;
-      padding: 24px;
-    }
-
-    .avatar {
-      width: 80px;
-      height: 80px;
-      border-radius: 50%;
-      background: #635bff;
+      background-color: #000;
+      color: #fff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
       display: flex;
+      flex-direction: column;
       align-items: center;
       justify-content: center;
-      margin: 0 auto 16px;
-      color: white;
+      min-height: 100vh;
+      margin: 0;
+      padding: 20px;
     }
-    .avatar svg { width: 40px; height: 40px; fill: currentColor; }
-    h1 { font-size: 22px; font-weight: 700; color: #ffffff; margin-bottom: 6px; }
-    p.subtitle { font-size: 14px; color: #aaaaaa; margin-bottom: 24px; }
-    
-    .input-group {
-      position: relative;
-      margin-bottom: 16px;
+    .profile-container {
+      text-align: center;
+      max-width: 400px;
     }
-    input[type="text"] {
-      width: 100%;
-      padding: 12px 40px 12px 16px;
-      background-color: #111111;
-      color: #ffffff;
-      border: 1px solid #333333;
-      border-radius: 12px;
-      font-size: 14px;
-      outline: none;
+    .avatar {
+      width: 180px;
+      height: 180px;
+      border-radius: 50%;
+      border: 3px solid #d4af37;
+      margin-bottom: 20px;
     }
-    .mic-icon {
-      position: absolute;
-      right: 12px;
-      top: 50%;
-      transform: translateY(-50%);
-      color: #cccccc;
+    h1 {
+      font-size: 28px;
+      margin: 10px 0;
     }
-
-    button {
-      width: 100%;
-      padding: 14px;
-      border: none;
-      border-radius: 12px;
+    p {
+      color: #aaa;
       font-size: 16px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: all 0.2s ease;
+      margin-bottom: 30px;
     }
-    .btn-call { background: #10a37f; color: white; display: block; }
-    .btn-call:hover { background: #0e8e6f; }
-    .btn-end { background: #e53e3e; color: white; display: none; }
-    .btn-end:hover { background: #c53030; }
-
-    .status { font-size: 13px; color: #777; margin-top: 12px; min-height: 20px; }
-    .transcript {
-      margin-top: 20px;
-      text-align: left;
-      font-size: 13px;
-      color: #444;
-      background: #fafafa;
-      padding: 12px;
-      border-radius: 12px;
-      max-height: 150px;
-      overflow-y: auto;
-      border: 1px solid #eee;
+    elevenlabs-convai {
+      display: block;
+      margin: 20px auto;
     }
   </style>
 </head>
 <body>
 
-  <div class="card">
-    <div class="avatar" style="width: 120px; height: 120px; margin: 0 auto 16px;">
-      <img src="/images/profile.jpg" alt="AI Mark" style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;" />
-    </div>
+  <div class="profile-container">
+    <img src="/images/profile.jpg" alt="Mark Laxton" class="avatar">
     <h1>AI Mark</h1>
-    <p class="subtitle">Ask a question by typing or speaking.</p>
+    <p>Tap below to start an uninterrupted voice call</p>
 
-    <div class="input-group">
-      <input type="text" id="textInput" placeholder="Type your question..." />
-      <span class="mic-icon">🎤</span>
-    </div>
-
-    <button id="callBtn" class="btn-call">📞 Call</button>
-    <button id="endBtn" class="btn-end">🛑 End Call</button>
-
-    <div class="status" id="status"></div>
-    <div class="transcript" id="transcript" style="display:none;"></div>
+    <!-- ELEVENLABS WEBRTC WIDGET -->
+    <elevenlabs-convai agent-id="6301fcb97fec6971ee601a0a2f4bdca5"></elevenlabs-convai>
   </div>
-  <audio id="audio-player" playsinline preload="auto"></audio>
 
-  <script>
-    const SESSION_TOKEN = "__SESSION_TOKEN__";
-    let messages = [];
-    let callRecognizer = null;
-    let isListening = false;
+  <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
 
-    function $(id) { return document.getElementById(id); }
-
-    function setStatus(text) {
-      const el = $("status");
-      if (el) el.innerText = text;
-    }
-
-    function appendTranscript(sender, text) {
-      const box = $("transcript");
-      if (!box) return;
-      box.style.display = "block";
-      const p = document.createElement("p");
-      p.style.marginBottom = "6px";
-      p.innerHTML = "<strong>" + sender + ":</strong> " + text;
-      box.appendChild(p);
-      box.scrollTop = box.scrollHeight;
-    }
-
-    async function askMentor(text) {
-      stopMicrophone();
-
-      if (!text.startsWith("[SYSTEM EVENT")) {
-        appendTranscript("You", text);
-      }
-      
-      messages.push({ role: "user", content: text });
-      setStatus("Thinking...");
-
-      try {
-        const r = await fetch("/api/chat", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "Authorization": "Bearer " + SESSION_TOKEN,
-          },
-          body: JSON.stringify({ messages }),
-        });
-
-        const data = await r.json();
-        if (!r.ok) throw new Error(data.error || "Request failed");
-
-        messages.push({ role: "assistant", content: data.reply });
-        appendTranscript("Mentor", data.reply);
-        setStatus("Speaking...");
-
-        if (data.audio) {
-          const player = document.getElementById("audio-player");
-          player.src = "data:audio/mp3;base64," + data.audio;
-          player.onended = () => {
-            prepareNextTurn();
-          };
-          player.play().catch(err => {
-            console.error("Playback error:", err);
-            prepareNextTurn();
-          });
-        } else {
-          prepareNextTurn();
-        }
-      } catch (err) {
-        console.error("Chat error:", err);
-        setStatus("⚠️ Connection error.");
-        prepareNextTurn();
-      }
-    }
-
-    function prepareNextTurn() {
-      isListening = false;
-      const endBtn = $("endBtn");
-      if (endBtn && endBtn.style.display === "block") {
-        endBtn.innerText = "🎙️ Tap to Speak";
-        endBtn.style.backgroundColor = "#22c55e"; // Changes button to green for visual cue
-        setStatus("Tap the button when you are ready to talk.");
-      }
-    }
-
-    function toggleMicrophone() {
-      if ($("endBtn").style.display !== "block") return;
-
-      if (isListening) {
-        // User clicked again while listening -> stop manually and process text
-        if (callRecognizer) {
-          try { callRecognizer.stop(); } catch (_) {}
-        }
-      } else {
-        startListeningTurn();
-      }
-    }
-
-    function startListeningTurn() {
-      stopMicrophone();
-      isListening = true;
-      
-      const endBtn = $("endBtn");
-      endBtn.innerText = "🛑 Stop & Send";
-      endBtn.style.backgroundColor = "#ef4444"; // Changes button back to red
-      setStatus("Listening... Speak now.");
-
-      const Speech = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!Speech) return;
-
-      callRecognizer = new Speech();
-      callRecognizer.continuous = false;
-      callRecognizer.interimResults = false;
-
-      callRecognizer.onresult = async (e) => {
-        const text = e.results[0][0].transcript.trim();
-        if (text.length > 0) {
-          await askMentor(text);
-        } else {
-          prepareNextTurn();
-        }
-      };
-
-      callRecognizer.onerror = (e) => {
-        console.warn("Speech error:", e.error);
-        if (e.error !== "aborted") {
-          prepareNextTurn();
-        }
-      };
-
-      callRecognizer.onend = () => {
-        // If engine times out naturally without user clicking stop
-        setTimeout(() => {
-          if (isListening && $("status").innerText === "Listening...") {
-            prepareNextTurn();
-          }
-        }, 300);
-      };
-
-      try {
-        callRecognizer.start();
-      } catch (err) {
-        console.warn("Start error:", err.message);
-        prepareNextTurn();
-      }
-    }
-
-    function stopMicrophone() {
-      if (callRecognizer) {
-        callRecognizer.onresult = null;
-        callRecognizer.onerror = null;
-        callRecognizer.onend = null;
-        try { callRecognizer.abort(); } catch (_) {}
-        callRecognizer = null;
-      }
-    }
-
-    async function startCall() {
-      $("callBtn").style.display = "none";
-      $("endBtn").style.display = "block";
-      if ($("transcript")) $("transcript").style.display = "block";
-
-      const player = document.getElementById("audio-player");
-      if (player) {
-        player.src = "data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEARKwAAIhYAQACABAAZGF0YQAAAAA=";
-        player.play().catch(() => {});
-      }
-
-      setStatus("Connecting...");
-      await askMentor("[SYSTEM EVENT: User started call. Give a 1-sentence quick greeting like 'Hey, Mark here, how can I help you?']");
-    }
-
-    function endCall() {
-      stopMicrophone();
-      isListening = false;
-      const player = document.getElementById("audio-player");
-      if (player) {
-        player.pause();
-        player.currentTime = 0;
-      }
-      $("callBtn").style.display = "block";
-      $("endBtn").style.display = "none";
-      $("endBtn").innerText = "End Call";
-      $("endBtn").style.backgroundColor = ""; // Reset styling
-      setStatus("Call ended.");
-    }
-
-    $("callBtn").onclick = startCall;
-    
-    // Instead of dropping entirely, make the middle button drive phone engagement explicitly
-    $("endBtn").onclick = (e) => {
-      // If user holds/taps during actual listening, manage the turn
-      if ($("status").innerText === "Listening... Speak now." || !isListening) {
-        toggleMicrophone();
-      }
-    };
-
-    const input = $("textInput");
-    if (input) {
-      input.addEventListener("keydown", async (e) => {
-        if (e.key === "Enter" && input.value.trim()) {
-          const val = input.value.trim();
-          input.value = "";
-          await askMentor(val);
-        }
-      });
-    }
-  </script>
 </body>
 </html>
