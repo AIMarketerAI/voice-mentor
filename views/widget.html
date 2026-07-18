@@ -112,6 +112,7 @@
     const SESSION_TOKEN = "__SESSION_TOKEN__";
     let messages = [];
     let callRecognizer = null;
+    let listenTimeout = null;
 
     function $(id) { return document.getElementById(id); }
 
@@ -132,7 +133,6 @@
     }
 
     async function askMentor(text) {
-      // 1. Immediately kill the mic before any processing or network delay to prevent iOS lockups
       stopMicrophone();
 
       if (!text.startsWith("[SYSTEM EVENT")) {
@@ -163,26 +163,32 @@
           const player = document.getElementById("audio-player");
           player.src = "data:audio/mp3;base64," + data.audio;
           player.onended = () => {
-            if ($("endBtn").style.display === "block") {
-              listenNextTurn();
-            }
+            // CRUCIAL FOR MOBILE: Wait 400ms for hardware to release speaker channel before opening mic
+            if (listenTimeout) clearTimeout(listenTimeout);
+            listenTimeout = setTimeout(() => {
+              if ($("endBtn").style.display === "block") listenNextTurn();
+            }, 400);
           };
           player.play().catch(err => {
             console.error("Playback error:", err);
             listenNextTurn();
           });
         } else {
-          setStatus("Listening...");
           listenNextTurn();
         }
       } catch (err) {
         console.error("Chat error:", err);
         setStatus("⚠️ Connection error.");
-        setTimeout(() => { if ($("endBtn").style.display === "block") listenNextTurn(); }, 2000);
+        if (listenTimeout) clearTimeout(listenTimeout);
+        listenTimeout = setTimeout(() => { if ($("endBtn").style.display === "block") listenNextTurn(); }, 2000);
       }
     }
 
     function stopMicrophone() {
+      if (listenTimeout) {
+        clearTimeout(listenTimeout);
+        listenTimeout = null;
+      }
       if (callRecognizer) {
         callRecognizer.onresult = null;
         callRecognizer.onerror = null;
@@ -214,19 +220,19 @@
 
       callRecognizer.onerror = (e) => {
         console.warn("Speech error:", e.error);
-        // Recover if iOS webkit drops the microphone stream quietly
         if ($("endBtn").style.display === "block" && e.error !== "aborted") {
-          setTimeout(listenNextTurn, 400);
+          if (listenTimeout) clearTimeout(listenTimeout);
+          listenTimeout = setTimeout(listenNextTurn, 500);
         }
       };
 
       callRecognizer.onend = () => {
-        // Fallback recovery if engine shuts down without driving a result
-        setTimeout(() => {
+        if (listenTimeout) clearTimeout(listenTimeout);
+        listenTimeout = setTimeout(() => {
           if ($("endBtn").style.display === "block" && $("status").innerText === "Listening..." && !callRecognizer) {
             listenNextTurn();
           }
-        }, 500);
+        }, 600);
       };
 
       try {
