@@ -244,7 +244,9 @@ app.get("/dev/demo", (req, res) => {
   res.send(html);
 });
 
-app.get("/", (_req, res) => res.send("Voice Mentor server is running."));
+app.get("/", (_req, res) => {
+  res.sendFile(path.join(__dirname, "views", "widget.html"));
+});
 
 const PORT = 3000;
 app.listen(PORT, () => {
