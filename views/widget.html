@@ -51,8 +51,20 @@
     </div>
 
     <!-- ELEVENLABS WIDGET -->
-    <elevenlabs-convai agent-id="agent_9301kxtgngjfen6bxcpgvx0a2hbf"></elevenlabs-convai>
-    <script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
+<elevenlabs-convai agent-id="agent_9301kxtgngjfen6bxcpgvx0a2hbf"></elevenlabs-convai>
+<script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
+<script>
+  window.addEventListener('elevenlabs-convai:connected', () => {
+    // Forces iOS Safari to keep the audio context alive during playback changes
+    const keepAlive = setInterval(() => {
+      if (typeof AudioContext !== 'undefined') {
+        const ctx = new (AudioContext || webkitAudioContext)();
+        if (ctx.state === 'suspended') ctx.resume();
+      }
+    }, 1000);
+    window.addEventListener('elevenlabs-convai:disconnected', () => clearInterval(keepAlive));
+  });
+</script>
 
 </body>
 </html>
