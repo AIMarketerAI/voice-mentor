@@ -12,7 +12,7 @@ const pdfParse = require("pdf-parse");
 // Helper function to read all knowledge base files
 async function getKnowledgeBase() {
   const dirPath = path.join(__dirname, "knowledge_base");
-if (!fs.existsSync(dirPath)) return "";
+  if (!fs.existsSync(dirPath)) return "";
 
   const files = fs.readdirSync(dirPath);
   let contextText = "";
@@ -29,6 +29,7 @@ if (!fs.existsSync(dirPath)) return "";
   }
   return contextText;
 }
+
 const app = express();
 app.use(express.json());
 app.use("/images", express.static(path.join(__dirname, "views", "public", "images")));
@@ -196,15 +197,17 @@ app.post("/api/chat", requireSession, async (req, res) => {
       .map((b) => b.text)
       .join("");
 
-    // 2. Generate audio with your ElevenLabs cloned voice
+    // 2. Generate audio with low-latency streaming
     let audioBase64 = null;
     if (process.env.ELEVENLABS_VOICE_ID) {
-      console.log("Generating audio with ElevenLabs voice ID:", process.env.ELEVENLABS_VOICE_ID);
-      const audioStream = await elevenlabs.textToSpeech.convert(
+      console.log("Streaming audio with ElevenLabs voice ID:", process.env.ELEVENLABS_VOICE_ID);
+      
+      // Swapped to `.stream()` and `eleven_flash_v2_5` to generate chunks instantly
+      const audioStream = await elevenlabs.textToSpeech.stream(
         process.env.ELEVENLABS_VOICE_ID,
         {
           text: text,
-          model_id: "eleven_flash_v2_5",
+          modelId: "eleven_flash_v2_5",
           output_format: "mp3_44100_128",
         }
       );
@@ -215,7 +218,7 @@ app.post("/api/chat", requireSession, async (req, res) => {
       }
       const audioBuffer = Buffer.concat(chunks);
       audioBase64 = audioBuffer.toString("base64");
-      console.log("ElevenLabs audio generated successfully!");
+      console.log("ElevenLabs low-latency audio stream generated successfully!");
     }
 
     res.json({ reply: text, audio: audioBase64 });
