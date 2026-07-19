@@ -4,7 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>AI Mark Widget</title>
-    <!-- Load the official ElevenLabs SDK directly -->
     <script src="https://cdn.jsdelivr.net/npm/@elevenlabs/client-script@1.0.0/dist/index.js"></script>
     <style>
         body { background: #000; color: #fff; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
@@ -17,11 +16,11 @@
 </head>
 <body>
 
-    <img src="https://www.marklaxton.com/aimark/wp-content/uploads/2026/07/Mark-Laxton-Profile.png" class="profile-img" alt="Al Mark">
+    <img src="https://www.marklaxton.com/aimark/wp-content/uploads/2026/07/Al-Mark.png" class="profile-img" alt="Al Mark">
     <h1>Al Mark</h1>
     <p>Tap the button below to start your briefing</p>
 
-    <button id="callBtn" class="call-btn">Start Briefing</button>
+    <button id="callBtn" class="call-btn">Call</button>
 
     <script>
         const AGENT_ID = "agent_9301kxtgngjfen6bxcpgvx0a2hbf";
@@ -32,10 +31,8 @@
             if (!conversation) {
                 try {
                     callBtn.textContent = "Connecting...";
-                    // Request microphone access explicitly first
                     await navigator.mediaDevices.getUserMedia({ audio: true });
                     
-                    // Start the official ElevenLabs conversation session
                     conversation = await ElevenLabsConversation.startSession({
                         agentId: AGENT_ID,
                         onConnect: () => {
@@ -44,21 +41,21 @@
                         },
                         onDisconnect: () => {
                             conversation = null;
-                            callBtn.textContent = "Start Briefing";
+                            callBtn.textContent = "Call";
                             callBtn.classList.remove('active');
                         },
                         onError: (error) => {
                             console.error("ElevenLabs Error:", error);
                             alert("Connection failed. Please check microphone permissions.");
                             conversation = null;
-                            callBtn.textContent = "Start Briefing";
+                            callBtn.textContent = "Call";
                             callBtn.classList.remove('active');
                         }
                     });
                 } catch (err) {
                     console.error("Mic Access Error:", err);
                     alert("Please allow microphone access to talk to Al Mark.");
-                    callBtn.textContent = "Start Briefing";
+                    callBtn.textContent = "Call";
                 }
             } else {
                 await conversation.endSession();
