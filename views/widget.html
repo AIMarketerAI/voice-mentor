@@ -3,55 +3,67 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>AI Mark</title>
+    <title>AI Mark Widget</title>
+    <!-- Load the official ElevenLabs SDK directly -->
+    <script src="https://cdn.jsdelivr.net/npm/@elevenlabs/client-script@1.0.0/dist/index.js"></script>
     <style>
-        body {
-            margin: 0;
-            padding: 0;
-            background-color: #000000;
-            color: #ffffff;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            overflow: hidden;
-        }
-        .profile-container {
-            text-align: center;
-            padding: 20px;
-        }
-        .avatar {
-            width: 150px;
-            height: 150px;
-            border-radius: 50%;
-            border: 3px solid #dfb76c;
-            object-fit: cover;
-            margin-bottom: 20px;
-        }
-        h1 {
-            margin: 0 0 10px 0;
-            font-size: 2rem;
-            letter-spacing: 1px;
-        }
-        p {
-            margin: 0;
-            color: #aaaaaa;
-            font-size: 1rem;
-        }
+        body { background: #000; color: #fff; font-family: sans-serif; text-align: center; margin: 0; padding: 20px; }
+        .profile-img { width: 120px; height: 120px; border-radius: 50%; border: 3px solid #d4af37; margin-top: 20px; }
+        h1 { font-size: 24px; margin: 15px 0 5px; font-weight: bold; }
+        p { color: #aaa; font-size: 14px; margin-bottom: 30px; }
+        .call-btn { background: #28a745; color: white; border: none; padding: 15px 40px; font-size: 18px; font-weight: bold; border-radius: 30px; cursor: pointer; width: 100%; max-width: 300px; box-shadow: 0 4px 15px rgba(40,167,69,0.4); }
+        .call-btn.active { background: #dc3545; box-shadow: 0 4px 15px rgba(220,53,69,0.4); }
     </style>
 </head>
 <body>
 
-    <div class="profile-container">
-        <img src="/images/profile.jpg" alt="Mark Laxton" class="avatar">
-        <h1>AI Mark</h1>
-        <p>Tap the call button in the bottom right corner to start</p>
-    </div>
+    <img src="https://www.marklaxton.com/aimark/wp-content/uploads/2026/07/Mark-Laxton-Profile.png" class="profile-img" alt="Al Mark">
+    <h1>Al Mark</h1>
+    <p>Tap the button below to start your briefing</p>
 
-    <elevenlabs-convai agent-id="agent_9301kxtgngjfen6bxcpgvx0a2hbf" variant="expanded"></elevenlabs-convai>
-    <script src="https://elevenlabs.io/convai-widget/index.js" async></script>
+    <button id="callBtn" class="call-btn">Start Briefing</button>
 
+    <script>
+        const AGENT_ID = "agent_9301kxtgngjfen6bxcpgvx0a2hbf";
+        let conversation = null;
+        const callBtn = document.getElementById('callBtn');
+
+        callBtn.addEventListener('click', async () => {
+            if (!conversation) {
+                try {
+                    callBtn.textContent = "Connecting...";
+                    // Request microphone access explicitly first
+                    await navigator.mediaDevices.getUserMedia({ audio: true });
+                    
+                    // Start the official ElevenLabs conversation session
+                    conversation = await ElevenLabsConversation.startSession({
+                        agentId: AGENT_ID,
+                        onConnect: () => {
+                            callBtn.textContent = "End Briefing";
+                            callBtn.classList.add('active');
+                        },
+                        onDisconnect: () => {
+                            conversation = null;
+                            callBtn.textContent = "Start Briefing";
+                            callBtn.classList.remove('active');
+                        },
+                        onError: (error) => {
+                            console.error("ElevenLabs Error:", error);
+                            alert("Connection failed. Please check microphone permissions.");
+                            conversation = null;
+                            callBtn.textContent = "Start Briefing";
+                            callBtn.classList.remove('active');
+                        }
+                    });
+                } catch (err) {
+                    console.error("Mic Access Error:", err);
+                    alert("Please allow microphone access to talk to Al Mark.");
+                    callBtn.textContent = "Start Briefing";
+                }
+            } else {
+                await conversation.endSession();
+            }
+        });
+    </script>
 </body>
 </html>
