@@ -50,24 +50,7 @@
         <p>Tap the call button in the bottom right corner to start</p>
     </div>
 
-    <!-- ELEVENLABS WIDGET -->
-<elevenlabs-convai agent-id="agent_9301kxtgngjfen6bxcpgvx0a2hbf"></elevenlabs-convai>
-<script src="https://unpkg.com/@elevenlabs/convai-widget-embed" async type="text/javascript"></script>
-<script>
-  window.addEventListener('elevenlabs-convai:connected', () => {
-    let ctx = null;
-    const keepAlive = setInterval(() => {
-      if (typeof AudioContext !== 'undefined' || typeof webkitAudioContext !== 'undefined') {
-        if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-        if (ctx && ctx.state === 'suspended') ctx.resume();
-      }
-    }, 1000);
-    window.addEventListener('elevenlabs-convai:disconnected', () => {
-      clearInterval(keepAlive);
-      if (ctx) ctx.close();
-    });
-  });
-</script>
+    
 
 </body>
 </html>
