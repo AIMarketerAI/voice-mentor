@@ -130,6 +130,41 @@
         const responseBox = document.getElementById('responseBox');
 
         let messages = [];
+        let recognition = null;
+        let isCallActive = false;
+
+        // Initialize Speech Recognition
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            recognition = new SpeechRecognition();
+            recognition.continuous = false;
+            recognition.interimResults = false;
+
+            recognition.onstart = () => {
+                statusText.innerText = "Listening...";
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                userInput.value = transcript;
+                sendQuery(transcript);
+            };
+
+            recognition.onerror = (err) => {
+                console.error(err);
+                statusText.innerText = "Listening error. Tap mic to retry.";
+            };
+
+            recognition.onend = () => {
+                if (statusText.innerText === "Listening...") {
+                    statusText.innerText = "";
+                }
+            };
+
+            micBtn.addEventListener('click', () => {
+                if (recognition) recognition.start();
+            });
+        }
 
         async function sendQuery(text) {
             if (!text.trim()) return;
@@ -151,12 +186,20 @@
                     statusText.innerText = "";
                     userInput.value = "";
 
-                    // Display text reply in response container
                     responseBox.style.display = "block";
                     responseBox.innerText = data.reply;
 
                     if (data.audio) {
                         const audio = new Audio("data:audio/mp3;base64," + data.audio);
+                        
+                        // Automatically starts listening as soon as Mark finishes speaking
+                        audio.onended = () => {
+                            if (recognition && isCallActive) {
+                                statusText.innerText = "Listening...";
+                                recognition.start();
+                            }
+                        };
+                        
                         audio.play();
                     }
                 } else {
@@ -171,31 +214,17 @@
         }
 
         callBtn.addEventListener('click', () => {
+            isCallActive = true;
             const query = userInput.value || "Hi, please introduce yourself as AI Mark and ask how you can help me today.";
             sendQuery(query);
         });
 
         userInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
+                isCallActive = true;
                 sendQuery(userInput.value);
             }
         });
-
-        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
-            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-            const recognition = new SpeechRecognition();
-
-            recognition.onstart = () => { statusText.innerText = "Listening..."; };
-            recognition.onresult = (event) => {
-                const transcript = event.results[0][0].transcript;
-                userInput.value = transcript;
-                sendQuery(transcript);
-            };
-            recognition.onerror = () => { statusText.innerText = "Speech recognition error."; };
-            recognition.onend = () => { if (statusText.innerText === "Listening...") statusText.innerText = ""; };
-
-            micBtn.addEventListener('click', () => recognition.start());
-        }
     </script>
 </body>
 </html>
