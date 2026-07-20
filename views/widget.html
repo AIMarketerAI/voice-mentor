@@ -65,7 +65,8 @@
             outline: none;
         }
         .input-box input::placeholder { color: #8e8e93; }
-        .mic-icon { width: 20px; height: 20px; opacity: 0.7; cursor: pointer; }
+        .mic-icon { width: 20px; height: 20px; opacity: 0.7; cursor: pointer; transition: transform 0.2s, opacity 0.2s; }
+        .mic-icon.active { opacity: 1; transform: scale(1.2); }
         .call-btn {
             width: 100%;
             background-color: #129e75;
@@ -138,7 +139,18 @@
         let recognition = null;
         let isCallActive = false;
 
-        // Initialize Speech Recognition
+        function startListening() {
+            if (!recognition) return;
+            try {
+                recognition.start();
+                statusText.innerText = "Listening...";
+                micBtn.classList.add('active');
+            } catch (e) {
+                statusText.innerText = "Tap mic icon to speak reply";
+                micBtn.classList.remove('active');
+            }
+        }
+
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognition = new SpeechRecognition();
@@ -147,27 +159,31 @@
 
             recognition.onstart = () => {
                 statusText.innerText = "Listening...";
+                micBtn.classList.add('active');
             };
 
             recognition.onresult = (event) => {
                 const transcript = event.results[0][0].transcript;
                 userInput.value = transcript;
+                micBtn.classList.remove('active');
                 sendQuery(transcript);
             };
 
             recognition.onerror = (err) => {
                 console.error(err);
-                statusText.innerText = "Listening error. Tap mic to retry.";
+                micBtn.classList.remove('active');
+                statusText.innerText = "Tap mic icon to reply";
             };
 
             recognition.onend = () => {
+                micBtn.classList.remove('active');
                 if (statusText.innerText === "Listening...") {
                     statusText.innerText = "";
                 }
             };
 
             micBtn.addEventListener('click', () => {
-                if (recognition) recognition.start();
+                startListening();
             });
         }
 
@@ -178,7 +194,6 @@
             statusText.innerText = "Thinking...";
             messages.push({ role: "user", content: text });
 
-            // Display User Message
             responseBox.style.display = "block";
             const userMsgDiv = document.createElement('div');
             userMsgDiv.className = 'msg-user';
@@ -199,7 +214,6 @@
                     statusText.innerText = "";
                     userInput.value = "";
 
-                    // Display AI Message
                     const aiMsgDiv = document.createElement('div');
                     aiMsgDiv.className = 'msg-ai';
                     aiMsgDiv.innerText = data.reply;
@@ -210,13 +224,14 @@
                         const audio = new Audio("data:audio/mp3;base64," + data.audio);
                         
                         audio.onended = () => {
-                            if (recognition && isCallActive) {
-                                statusText.innerText = "Listening...";
-                                recognition.start();
+                            if (isCallActive) {
+                                startListening();
                             }
                         };
                         
-                        audio.play();
+                        audio.play().catch(() => {
+                            statusText.innerText = "Tap mic icon to speak reply";
+                        });
                     }
                 } else {
                     statusText.innerText = "Error getting response.";
@@ -256,18 +271,19 @@
                 if (data.audio) {
                     const audio = new Audio("data:audio/mp3;base64," + data.audio);
                     audio.onended = () => {
-                        if (recognition && isCallActive) {
-                            statusText.innerText = "Listening...";
-                            recognition.start();
+                        if (isCallActive) {
+                            startListening();
                         }
                     };
-                    audio.play();
-                } else if (recognition) {
-                    recognition.start();
+                    audio.play().catch(() => {
+                        statusText.innerText = "Tap mic icon to speak reply";
+                    });
+                } else {
+                    startListening();
                 }
             })
             .catch(() => {
-                if (recognition) recognition.start();
+                startListening();
             });
         });
 
