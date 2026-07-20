@@ -88,6 +88,8 @@
         
         .response-box {
             width: 100%;
+            max-height: 250px;
+            overflow-y: auto;
             margin-top: 20px;
             padding: 16px;
             background-color: #121212;
@@ -99,6 +101,9 @@
             line-height: 1.5;
             display: none;
         }
+        .msg-user { color: #129e75; font-weight: 600; margin-bottom: 6px; margin-top: 10px; }
+        .msg-user:first-child { margin-top: 0; }
+        .msg-ai { color: #ffffff; margin-bottom: 12px; white-space: pre-wrap; }
     </style>
 </head>
 <body>
@@ -173,6 +178,14 @@
             statusText.innerText = "Thinking...";
             messages.push({ role: "user", content: text });
 
+            // Display User Message in History
+            responseBox.style.display = "block";
+            const userMsgDiv = document.createElement('div');
+            userMsgDiv.className = 'msg-user';
+            userMsgDiv.innerText = `You: ${text}`;
+            responseBox.appendChild(userMsgDiv);
+            responseBox.scrollTop = responseBox.scrollHeight;
+
             try {
                 const res = await fetch("/api/chat", {
                     method: "POST",
@@ -186,13 +199,16 @@
                     statusText.innerText = "";
                     userInput.value = "";
 
-                    responseBox.style.display = "block";
-                    responseBox.innerText = data.reply;
+                    // Display AI Message in History
+                    const aiMsgDiv = document.createElement('div');
+                    aiMsgDiv.className = 'msg-ai';
+                    aiMsgDiv.innerText = data.reply;
+                    responseBox.appendChild(aiMsgDiv);
+                    responseBox.scrollTop = responseBox.scrollHeight;
 
                     if (data.audio) {
                         const audio = new Audio("data:audio/mp3;base64," + data.audio);
                         
-                        // Automatically starts listening as soon as Mark finishes speaking
                         audio.onended = () => {
                             if (recognition && isCallActive) {
                                 statusText.innerText = "Listening...";
