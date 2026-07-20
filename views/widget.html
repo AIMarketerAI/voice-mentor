@@ -137,8 +137,13 @@
         let messages = [];
         let recognition = null;
         let isCallActive = false;
+        let globalAudio = new Audio();
 
-        // Initialize Speech Recognition
+        function unlockAudio() {
+            globalAudio.play().catch(() => {});
+            globalAudio.pause();
+        }
+
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognition = new SpeechRecognition();
@@ -167,6 +172,7 @@
             };
 
             micBtn.addEventListener('click', () => {
+                unlockAudio();
                 if (recognition) recognition.start();
             });
         }
@@ -178,7 +184,6 @@
             statusText.innerText = "Thinking...";
             messages.push({ role: "user", content: text });
 
-            // Display User Message
             responseBox.style.display = "block";
             const userMsgDiv = document.createElement('div');
             userMsgDiv.className = 'msg-user';
@@ -199,7 +204,6 @@
                     statusText.innerText = "";
                     userInput.value = "";
 
-                    // Display AI Message
                     const aiMsgDiv = document.createElement('div');
                     aiMsgDiv.className = 'msg-ai';
                     aiMsgDiv.innerText = data.reply;
@@ -207,16 +211,16 @@
                     responseBox.scrollTop = responseBox.scrollHeight;
 
                     if (data.audio) {
-                        const audio = new Audio("data:audio/mp3;base64," + data.audio);
+                        globalAudio.src = "data:audio/mp3;base64," + data.audio;
                         
-                        audio.onended = () => {
+                        globalAudio.onended = () => {
                             if (recognition && isCallActive) {
                                 statusText.innerText = "Listening...";
                                 recognition.start();
                             }
                         };
                         
-                        audio.play();
+                        globalAudio.play().catch(e => console.error("Audio error:", e));
                     }
                 } else {
                     statusText.innerText = "Error getting response.";
@@ -229,17 +233,15 @@
             }
         }
 
-        // Trigger immediate greeting when Call button is clicked
         callBtn.addEventListener('click', () => {
             isCallActive = true;
+            unlockAudio();
             
-            // If the user typed a question, send it directly
             if (userInput.value.trim()) {
                 sendQuery(userInput.value);
                 return;
             }
 
-            // If empty, display exact welcoming greeting locally without sending prompt text to screen
             const greeting = "Hi, I'm AI Mark, how can I help you?";
             messages.push({ role: "assistant", content: greeting });
 
@@ -249,7 +251,6 @@
             aiMsgDiv.innerText = greeting;
             responseBox.appendChild(aiMsgDiv);
 
-            // Fetch TTS audio directly for the greeting phrase
             fetch("/api/chat", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
@@ -258,14 +259,14 @@
             .then(res => res.json())
             .then(data => {
                 if (data.audio) {
-                    const audio = new Audio("data:audio/mp3;base64," + data.audio);
-                    audio.onended = () => {
+                    globalAudio.src = "data:audio/mp3;base64," + data.audio;
+                    globalAudio.onended = () => {
                         if (recognition && isCallActive) {
                             statusText.innerText = "Listening...";
                             recognition.start();
                         }
                     };
-                    audio.play();
+                    globalAudio.play().catch(e => console.error(e));
                 } else if (recognition) {
                     recognition.start();
                 }
@@ -278,6 +279,7 @@
         userInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 isCallActive = true;
+                unlockAudio();
                 sendQuery(userInput.value);
             }
         });
