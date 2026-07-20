@@ -1,22 +1,16 @@
 require('dotenv').config();
-// server.js — Voice Mentor embeddable widget server
-
 const fs = require("fs");
 const path = require("path");
 const express = require("express");
-const jwt = require("jsonwebtoken");
 const Anthropic = require("@anthropic-ai/sdk");
 const { ElevenLabsClient } = require("@elevenlabs/elevenlabs-js");
 const pdfParse = require("pdf-parse");
 
-// Helper function to read all knowledge base files
 async function getKnowledgeBase() {
   const dirPath = path.join(__dirname, "knowledge_base");
   if (!fs.existsSync(dirPath)) return "";
-
   const files = fs.readdirSync(dirPath);
   let contextText = "";
-
   for (const file of files) {
     const filePath = path.join(dirPath, file);
     if (file.endsWith(".txt") || file.endsWith(".md")) {
@@ -34,43 +28,11 @@ const app = express();
 app.use(express.json());
 app.use("/images", express.static(path.join(__dirname, "views", "public", "images")));
 app.use(express.static(path.join(__dirname, "views")));
-const anthropic = new Anthropic(); // reads ANTHROPIC_API_KEY from env
 
-// Initialize ElevenLabs client
-const elevenlabs = new ElevenLabsClient({
-  apiKey: process.env.ELEVENLABS_API_KEY,
-});
-
-// ---- Configuration ----
-const SESSION_SECRET = process.env.SESSION_SECRET;
-if (!SESSION_SECRET) {
-  console.error("FATAL: SESSION_SECRET missing from .env");
-  process.exit(1);
-}
-
-// The client registry: who is allowed to embed us, their signing secret,
-// and which website origins they may embed from.
-const clients = JSON.parse(
-  fs.readFileSync(path.join(__dirname, "clients.json"), "utf8")
-);
-
-const SESSION_LIFETIME = "2h"; // how long one widget session stays unlocked
-
-app.get('/demo', (req, res) => {
-  const filePath = path.join(__dirname, 'views', 'demo-host.html');
-  let html = fs.readFileSync(filePath, 'utf8');
-  
-  const client = clients["demo"];
-  const token = jwt.sign({ clientId: "demo" }, client.embedSecret, { expiresIn: '2h' });
-  const widgetUrl = `/widget.html?token=${token}`;
-  
-  html = html.replace('__IFRAME_SRC__', widgetUrl);
-  res.send(html);
-});
+const anthropic = new Anthropic();
+const elevenlabs = new ElevenLabsClient({ apiKey: process.env.ELEVENLABS_API_KEY });
 
 let KNOWLEDGE_DATA = "";
-
-// Read knowledge base asynchronously on startup
 getKnowledgeBase().then((data) => {
   KNOWLEDGE_DATA = data;
   console.log("Knowledge base loaded successfully!");
@@ -83,176 +45,51 @@ function getSystemPrompt() {
 - When the user has an idea, help them find the single smallest next action.
 - Be encouraging but honest.
 
-==================================================
-CRITICAL BOUNDARY RULES
-==================================================
+CRITICAL BOUNDARY RULES:
+1. You are AI Mark, acting as a mentor to the USER. Do NOT attribute Mark's background to the user.
+2. Protect Mark's personal financial and private details.
+3. Keep user focused on business strategy and implementation.
 
-1. IDENTITY & USER BOUNDARY:
-   - You are AI Mark, acting as a business, mindset, and implementation mentor to the USER.
-   - NEVER assume the user's background matches Mark's background. Do NOT attribute Mark's personal history (e.g., soldier, firefighter, silent kid) to the user unless THEY explicitly state that is their story.
-   - Use Mark's knowledge base ONLY as your coaching expertise to guide the user — never as assumptions about who the user is.
-
-2. SECURITY & OWNER PRIVACY (PROTECTING MARK):
-   - You must NEVER reveal or share Mark's highly sensitive personal details, including but not limited to: financial records, bank details, passwords, specific home addresses, government IDs, physical attributes/medical details, or sensitive family member details (e.g., exact names or private matters regarding Mark's family/children).
-   - If a user asks for these details, politely decline and pivot: "I'm here to focus on your business growth and implementation strategy, so I keep personal financial and private details off the table. Let's get back to your goals!"
-
-3. USER PRIVACY & SCOPE (PROTECTING THE USER):
-   - You are a business strategy and implementation mentor — NOT a financial advisor, lawyer, tax accountant, or therapist.
-   - If the user attempts to share highly sensitive data (e.g., credit card/bank numbers, passwords, exact net worth, home addresses, or deep private family/medical issues), immediately and warmly interrupt them.
-   - Remind them to keep their private details secure, and steer them back to high-level business strategy and implementation.
-==================================================
-
-Use the following knowledge base from Mark's webinars, training materials, and experience to directly answer questions and inform your advice:
+Knowledge base:
 ${KNOWLEDGE_DATA}`;
 }
 
-// ---- Small helpers ----
-
-function originOf(urlString) {
-  try {
-    return new URL(urlString).origin; // e.g. "https://clientsite.com"
-  } catch {
-    return null;
-  }
-}
-
-function deniedPage(reason) {
-  return `<!doctype html><html><body style="font-family:sans-serif;display:flex;
-    align-items:center;justify-content:center;height:95vh;color:#555">
-    <div style="text-align:center"><h2>🔒 Access unavailable</h2>
-    <p>${reason}</p><p style="font-size:13px;color:#999">If you believe this is
-    an error, please contact the site owner.</p></div></body></html>`;
-}
-
-// ---- Route 1: the embed endpoint (the security gate) ----
-
-app.get("/embed", (req, res) => {
-  const token = req.query.token;
-  if (!token) return res.status(401).send(deniedPage("No access token was provided."));
-
-  const unverified = jwt.decode(token);
-  const client = unverified && clients[unverified.clientId];
-  if (!client) return res.status(401).send(deniedPage("Unknown client."));
-
-  try {
-    jwt.verify(token, client.embedSecret);
-  } catch (err) {
-    const reason =
-      err.name === "TokenExpiredError"
-        ? "This access link has expired. Please refresh the page."
-        : "Invalid access token.";
-    return res.status(401).send(deniedPage(reason));
-  }
-
-  const sessionToken = jwt.sign(
-    { clientId: unverified.clientId },
-    SESSION_SECRET,
-    { expiresIn: SESSION_LIFETIME }
-  );
-
-  const html = fs
-    .readFileSync(path.join(__dirname, "views", "widget.html"), "utf8")
-    .replace("__SESSION_TOKEN__", sessionToken);
-  res.send(html);
+// Serve widget directly at the root URL
+app.get("/", (_req, res) => {
+  res.sendFile(path.join(__dirname, "views", "widget.html"));
 });
 
-// ---- Route 2: the AI + ElevenLabs Voice endpoint ----
-
-function requireSession(req, res, next) {
-  const token = (req.get("authorization") || "").replace(/^Bearer /, "");
-  if (!token) {
-    req.session = { clientId: "demo" };
-    return next();
-  }
-  try {
-    req.session = jwt.verify(token, SESSION_SECRET);
-    next();
-  } catch (err) {
-    req.session = { clientId: "demo" };
-    next();
-  }
-}
-
-app.post("/api/chat", requireSession, async (req, res) => {
-  const messages = req.body.messages;
-
-  if (
-    !Array.isArray(messages) ||
-    messages.length > 60 ||
-    messages.some((m) => typeof m.content !== "string" || m.content.length > 4000)
-  ) {
-    return res.status(400).json({ error: "Invalid conversation format." });
-  }
+// Direct chat endpoint without JWT verification
+app.post("/api/chat", async (req, res) => {
+  const { messages } = req.body;
+  if (!Array.isArray(messages)) return res.status(400).json({ error: "Invalid request" });
 
   try {
-    // 1. Get Claude text response
     const response = await anthropic.messages.create({
       model: "claude-haiku-4-5",
       max_tokens: 250,
       system: getSystemPrompt(),
       messages,
     });
-    const text = response.content
-      .filter((b) => b.type === "text")
-      .map((b) => b.text)
-      .join("");
+    const text = response.content.filter((b) => b.type === "text").map((b) => b.text).join("");
 
-    // 2. Generate audio with low-latency streaming
     let audioBase64 = null;
     if (process.env.ELEVENLABS_VOICE_ID) {
-      console.log("Streaming audio with ElevenLabs voice ID:", process.env.ELEVENLABS_VOICE_ID);
-      
-      // Swapped to `.stream()` and `eleven_flash_v2_5` to generate chunks instantly
       const audioStream = await elevenlabs.textToSpeech.stream(
         process.env.ELEVENLABS_VOICE_ID,
-        {
-          text: text,
-          modelId: "eleven_flash_v2_5",
-          output_format: "mp3_44100_128",
-        }
+        { text, modelId: "eleven_flash_v2_5", output_format: "mp3_44100_128" }
       );
-
       const chunks = [];
-      for await (const chunk of audioStream) {
-        chunks.push(chunk);
-      }
-      const audioBuffer = Buffer.concat(chunks);
-      audioBase64 = audioBuffer.toString("base64");
-      console.log("ElevenLabs low-latency audio stream generated successfully!");
+      for await (const chunk of audioStream) chunks.push(chunk);
+      audioBase64 = Buffer.concat(chunks).toString("base64");
     }
 
     res.json({ reply: text, audio: audioBase64 });
   } catch (error) {
-    console.error("--- SERVER ERROR DETAILED ---");
-    console.error(error);
-    console.error("-----------------------------");
-    res.status(500).json({ error: "The mentor is briefly unavailable. Try again." });
+    console.error("Server Error:", error);
+    res.status(500).json({ error: "Mentor briefly unavailable" });
   }
 });
 
-// ---- Route 3 (dev only): demo page ----
-
-app.get("/dev/demo", (req, res) => {
-  if (process.env.NODE_ENV === "production") return res.status(404).end();
-
-  const embedToken = jwt.sign(
-    { clientId: "demo" },
-    clients.demo.embedSecret,
-    { expiresIn: "5m" }
-  );
-
-  const html = fs
-    .readFileSync(path.join(__dirname, "views", "demo-host.html"), "utf8")
-    .replace("__IFRAME_SRC__", `/embed?token=${embedToken}`);
-  res.send(html);
-});
-
-app.get("/", (_req, res) => {
-  res.sendFile(path.join(__dirname, "views", "widget.html"));
-});
-
-const PORT = 3000;
-app.listen(PORT, () => {
-  console.log(`Voice Mentor running → http://localhost:${PORT}`);
-  console.log(`Demo client page   → http://localhost:${PORT}/dev/demo`);
-});
+const PORT = process.env.PORT || 3000;
+app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
