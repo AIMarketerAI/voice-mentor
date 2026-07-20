@@ -65,7 +65,7 @@
             outline: none;
         }
         .input-box input::placeholder { color: #8e8e93; }
-        .mic-icon { width: 20px; height: 20px; opacity: 0.7; }
+        .mic-icon { width: 20px; height: 20px; opacity: 0.7; cursor: pointer; }
         .call-btn {
             width: 100%;
             background-color: #129e75;
@@ -80,7 +80,11 @@
             justify-content: center;
             gap: 10px;
             cursor: pointer;
+            transition: background-color 0.2s;
         }
+        .call-btn:hover { background-color: #0f8260; }
+        .call-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+        .status { margin-top: 12px; font-size: 14px; color: #8e8e93; }
     </style>
 </head>
 <body>
@@ -91,7 +95,7 @@
         
         <div class="input-box">
             <input type="text" id="userInput" placeholder="Type your question...">
-            <svg class="mic-icon" viewBox="0 0 24 24" fill="white">
+            <svg class="mic-icon" id="micBtn" viewBox="0 0 24 24" fill="white">
                 <path d="M12 14c1.66 0 3-1.34 3-3V5c0-1.66-1.34-3-3-3S9 3.34 9 5v6c0 1.66 1.34 3 3 3z"/>
                 <path d="M17 11c0 2.76-2.24 5-5 5s-5-2.24-5-5H5c0 3.53 2.61 6.43 6 6.92V21h2v-3.08c3.39-.49 6-3.39 6-6.92h-2z"/>
             </svg>
@@ -100,6 +104,79 @@
         <button class="call-btn" id="callBtn">
             <span>📞</span> Call
         </button>
+        <div class="status" id="statusText"></div>
     </div>
+
+    <script>
+        const userInput = document.getElementById('userInput');
+        const callBtn = document.getElementById('callBtn');
+        const micBtn = document.getElementById('micBtn');
+        const statusText = document.getElementById('statusText');
+
+        let messages = [];
+
+        async function sendQuery(text) {
+            if (!text.trim()) return;
+            
+            callBtn.disabled = true;
+            statusText.innerText = "Thinking...";
+            messages.push({ role: "user", content: text });
+
+            try {
+                const res = await fetch("/api/chat", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ messages })
+                });
+
+                const data = await res.json();
+                if (data.reply) {
+                    messages.push({ role: "assistant", content: data.reply });
+                    statusText.innerText = "";
+                    userInput.value = "";
+
+                    if (data.audio) {
+                        const audio = new Audio("data:audio/mp3;base64," + data.audio);
+                        audio.play();
+                    }
+                } else {
+                    statusText.innerText = "Error getting response.";
+                }
+            } catch (err) {
+                console.error(err);
+                statusText.innerText = "Connection failed.";
+            } finally {
+                callBtn.disabled = false;
+            }
+        }
+
+        callBtn.addEventListener('click', () => {
+            const query = userInput.value || "Hello Mark, give me a quick briefing.";
+            sendQuery(query);
+        });
+
+        userInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                sendQuery(userInput.value);
+            }
+        });
+
+        // Speech Recognition for Mic Icon
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+
+            recognition.onstart = () => { statusText.innerText = "Listening..."; };
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                userInput.value = transcript;
+                sendQuery(transcript);
+            };
+            recognition.onerror = () => { statusText.innerText = "Speech recognition error."; };
+            recognition.onend = () => { if (statusText.innerText === "Listening...") statusText.innerText = ""; };
+
+            micBtn.addEventListener('click', () => recognition.start());
+        }
+    </script>
 </body>
 </html>
