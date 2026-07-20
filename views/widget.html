@@ -137,13 +137,8 @@
         let messages = [];
         let recognition = null;
         let isCallActive = false;
-        let globalAudio = new Audio();
 
-        function unlockAudio() {
-            globalAudio.play().catch(() => {});
-            globalAudio.pause();
-        }
-
+        // Initialize Speech Recognition
         if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
             const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
             recognition = new SpeechRecognition();
@@ -172,7 +167,6 @@
             };
 
             micBtn.addEventListener('click', () => {
-                unlockAudio();
                 if (recognition) recognition.start();
             });
         }
@@ -184,6 +178,7 @@
             statusText.innerText = "Thinking...";
             messages.push({ role: "user", content: text });
 
+            // Display User Message
             responseBox.style.display = "block";
             const userMsgDiv = document.createElement('div');
             userMsgDiv.className = 'msg-user';
@@ -204,6 +199,7 @@
                     statusText.innerText = "";
                     userInput.value = "";
 
+                    // Display AI Message
                     const aiMsgDiv = document.createElement('div');
                     aiMsgDiv.className = 'msg-ai';
                     aiMsgDiv.innerText = data.reply;
@@ -211,16 +207,16 @@
                     responseBox.scrollTop = responseBox.scrollHeight;
 
                     if (data.audio) {
-                        globalAudio.src = "data:audio/mp3;base64," + data.audio;
+                        const audio = new Audio("data:audio/mp3;base64," + data.audio);
                         
-                        globalAudio.onended = () => {
+                        audio.onended = () => {
                             if (recognition && isCallActive) {
                                 statusText.innerText = "Listening...";
                                 recognition.start();
                             }
                         };
                         
-                        globalAudio.play().catch(e => console.error("Audio error:", e));
+                        audio.play();
                     }
                 } else {
                     statusText.innerText = "Error getting response.";
@@ -235,7 +231,6 @@
 
         callBtn.addEventListener('click', () => {
             isCallActive = true;
-            unlockAudio();
             
             if (userInput.value.trim()) {
                 sendQuery(userInput.value);
@@ -259,14 +254,14 @@
             .then(res => res.json())
             .then(data => {
                 if (data.audio) {
-                    globalAudio.src = "data:audio/mp3;base64," + data.audio;
-                    globalAudio.onended = () => {
+                    const audio = new Audio("data:audio/mp3;base64," + data.audio);
+                    audio.onended = () => {
                         if (recognition && isCallActive) {
                             statusText.innerText = "Listening...";
                             recognition.start();
                         }
                     };
-                    globalAudio.play().catch(e => console.error(e));
+                    audio.play();
                 } else if (recognition) {
                     recognition.start();
                 }
@@ -279,7 +274,6 @@
         userInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 isCallActive = true;
-                unlockAudio();
                 sendQuery(userInput.value);
             }
         });
