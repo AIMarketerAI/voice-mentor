@@ -142,6 +142,7 @@
         function startListening() {
             if (!recognition) return;
             try {
+                recognition.abort(); // Reset any hung recognition instance
                 recognition.start();
                 statusText.innerText = "Listening...";
                 micBtn.classList.add('active');
@@ -172,7 +173,7 @@
             recognition.onerror = (err) => {
                 console.error(err);
                 micBtn.classList.remove('active');
-                statusText.innerText = "Tap mic icon to reply";
+                statusText.innerText = "Tap mic icon to speak reply";
             };
 
             recognition.onend = () => {
