@@ -128,21 +128,40 @@
         <div class="response-box" id="responseBox"></div>
     </div>
 
+    <!-- Hidden audio element pre-unlocked on user touch -->
+    <audio id="player" playsinline preload="auto"></audio>
+
     <script>
         const userInput = document.getElementById('userInput');
         const callBtn = document.getElementById('callBtn');
         const micBtn = document.getElementById('micBtn');
         const statusText = document.getElementById('statusText');
         const responseBox = document.getElementById('responseBox');
+        const player = document.getElementById('player');
 
         let messages = [];
         let recognition = null;
         let isCallActive = false;
 
+        // Unlocks audio element on touch gesture
+        function unlockAudio() {
+            player.play().catch(() => {});
+            player.pause();
+        }
+
+        function playBase64Audio(base64Data, onEndCallback) {
+            player.src = "data:audio/mp3;base64," + base64Data;
+            player.onended = onEndCallback;
+            player.play().catch((err) => {
+                console.error("Playback error:", err);
+                statusText.innerText = "Tap mic icon to speak reply";
+            });
+        }
+
         function startListening() {
             if (!recognition) return;
             try {
-                recognition.abort(); // Reset any hung recognition instance
+                recognition.abort();
                 recognition.start();
                 statusText.innerText = "Listening...";
                 micBtn.classList.add('active');
@@ -184,6 +203,7 @@
             };
 
             micBtn.addEventListener('click', () => {
+                unlockAudio();
                 startListening();
             });
         }
@@ -222,16 +242,8 @@
                     responseBox.scrollTop = responseBox.scrollHeight;
 
                     if (data.audio) {
-                        const audio = new Audio("data:audio/mp3;base64," + data.audio);
-                        
-                        audio.onended = () => {
-                            if (isCallActive) {
-                                startListening();
-                            }
-                        };
-                        
-                        audio.play().catch(() => {
-                            statusText.innerText = "Tap mic icon to speak reply";
+                        playBase64Audio(data.audio, () => {
+                            if (isCallActive) startListening();
                         });
                     }
                 } else {
@@ -247,6 +259,7 @@
 
         callBtn.addEventListener('click', () => {
             isCallActive = true;
+            unlockAudio();
             
             if (userInput.value.trim()) {
                 sendQuery(userInput.value);
@@ -270,14 +283,8 @@
             .then(res => res.json())
             .then(data => {
                 if (data.audio) {
-                    const audio = new Audio("data:audio/mp3;base64," + data.audio);
-                    audio.onended = () => {
-                        if (isCallActive) {
-                            startListening();
-                        }
-                    };
-                    audio.play().catch(() => {
-                        statusText.innerText = "Tap mic icon to speak reply";
+                    playBase64Audio(data.audio, () => {
+                        if (isCallActive) startListening();
                     });
                 } else {
                     startListening();
@@ -291,6 +298,7 @@
         userInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 isCallActive = true;
+                unlockAudio();
                 sendQuery(userInput.value);
             }
         });
