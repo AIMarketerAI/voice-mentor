@@ -196,11 +196,17 @@
             };
 
             recognition.onend = () => {
-                micBtn.classList.remove('active');
-                if (statusText.innerText === "Listening...") {
-                    statusText.innerText = "";
-                }
-            };
+    micBtn.classList.remove('active');
+    if (isCallActive) {
+        try {
+            recognition.start();
+        } catch (e) {
+            // Microphone is already active or starting
+        }
+    } else {
+        statusText.innerText = "Tap mic icon to speak reply";
+    }
+};
 
             micBtn.addEventListener('click', () => {
                 unlockAudio();
